@@ -42,3 +42,10 @@ src/test/
 **/*Test.java
 **/*Tests.java
 **/*TestCase.java
+
+
+# 排除所有sql文件
+sql/*.sql
+
+# 除了downbit.sql
+!sql/downbit.sql
