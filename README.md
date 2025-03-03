@@ -32,6 +32,10 @@ downbit:
     secret-key: 你的secret_key
 ```
 
-### 2. 其它配置
+### 2. 下载并启动推荐服务
+
+本系统视频推荐功能依赖于[视频推荐服务](https://github.com/dalke1/downbit-recommend),但是没有该服务也可以正常运行。
+
+### 3. 其它配置
 
 1. 在 `application.yml` 中将${}替换为自己的配置
