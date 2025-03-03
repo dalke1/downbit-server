@@ -1,0 +1,56 @@
+spring:
+  application:
+    name: downbit-Server
+  datasource:
+    url: jdbc:mysql://localhost:3306/downbit?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    username: root
+    password: ${MYSQL_PASS}
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: ${REDIS_PASS}
+    mongodb:
+      uri: mongodb://localhost:27017/downbit
+  kafka:
+    bootstrap-servers: ${REMOTE_ADDR}:9092
+    producer:
+      #消息值的序列化规则
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+
+mybatis-plus:
+  mapper-locations: classpath:/mapper/*Mapper.xml
+
+server:
+  port: 8081
+
+
+#自定义的配置属性
+downbit:
+  host: downbit.cn
+  # jwt的配置
+  jwt:
+    expiration: 432000000 # 1000*60*60*24*5  5天,单位毫秒,作为token和redis中的key的过期时间
+  # 阿里云api服务的配置
+  aliyun:
+    auth: ${ALIYUN_APPCODE}
+  # jwt过滤器放行的接口
+  filter:
+    pass-path:
+      - /api/auth/username_login
+      - /api/auth/phone_login
+      - /api/auth/mail_login
+      - /api/auth/register
+      - /api/auth/captcha
+  # 跨域配置
+  cors:
+    allow-origins:
+      - http://localhost:8088
+      - http://localhost
+  # 腾讯云对象存储(cos)的配置
+  cos:
+    bucket: ${COS_BUCKET}
+    region: ${COS_REGION}
+    secret-id: ${COS_SECRET_ID}
+    secret-key: ${COS_SECRET_KEY}
+

@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.darc.downbit.dao.mapper.VideoMapper">
+
+    <resultMap id="BaseResultMap" type="com.darc.downbit.dao.entity.Video">
+        <id property="videoId" column="video_id" jdbcType="INTEGER"/>
+        <result property="userId" column="user_id" jdbcType="INTEGER"/>
+        <result property="fileId" column="file_id" jdbcType="INTEGER"/>
+        <result property="videoTitle" column="video_title" jdbcType="VARCHAR"/>
+        <result property="coverFileId" column="cover_file_id" jdbcType="INTEGER"/>
+        <result property="duration" column="duration" jdbcType="INTEGER"/>
+        <result property="likeCount" column="like_count" jdbcType="INTEGER"/>
+        <result property="commentCount" column="comment_count" jdbcType="INTEGER"/>
+        <result property="watchCount" column="watch_count" jdbcType="INTEGER"/>
+        <result property="favoriteCount" column="favorite_count" jdbcType="INTEGER"/>
+        <result property="uploadTime" column="upload_time" jdbcType="TIMESTAMP"/>
+    </resultMap>
+
+    <resultMap id="videoPoMap" type="com.darc.downbit.common.po.VideoPo">
+        <result property="uploader" column="uploader" jdbcType="VARCHAR"/>
+        <result property="videoTitle" column="video_title" jdbcType="VARCHAR"/>
+        <result property="fileName" column="file_name" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <resultMap id="coverPoMap" type="com.darc.downbit.common.po.CoverPo">
+        <result property="videoTitle" column="video_title" jdbcType="VARCHAR"/>
+        <result property="coverFileName" column="file_name" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <resultMap id="tagPoMap" type="com.darc.downbit.common.po.TagPo">
+        <result property="videoTitle" column="video_title" jdbcType="VARCHAR"/>
+        <result property="tagName" column="tag_name" jdbcType="VARCHAR"/>
+    </resultMap>
+
+    <sql id="Base_Column_List">
+        video_id,user_id,file_id,video_title,cover_file_id,duration,like_count,comment_count,watch_count,favorite_count,upload_time
+    </sql>
+
+    <select id="getVideosByVideoTitles" resultMap="videoPoMap">
+        SELECT u.username as uploader,v.video_title,f.file_name
+        FROM video v
+        JOIN file f ON f.file_id = v.file_id
+        JOIN user u ON v.user_id = u.user_id
+        WHERE v.video_title IN
+        <foreach item="title" collection="titles" open="(" separator="," close=")">
+            #{title}
+        </foreach>
+    </select>
+
+    <select id="getCoverFilesByVideoTitles" resultType="String">
+        SELECT f.file_name
+        FROM file f
+        JOIN video v ON f.file_id = v.cover_file_id
+        WHERE v.video_title IN
+        <foreach item="title" collection="titles" open="(" separator="," close=")">
+            #{title}
+        </foreach>
+    </select>
+
+
+    <select id="getVideoFilesByVideoTitles" resultType="String">
+        SELECT f.file_name
+        FROM file f
+        JOIN video v ON f.file_id = v.file_id
+        WHERE v.video_title IN
+        <foreach item="title" collection="titles" open="(" separator="," close=")">
+            #{title}
+        </foreach>
+    </select>
+
+    <select id="getCoversAndTitlesByVideosId" resultMap="coverPoMap">
+        SELECT v.video_title,f.file_name
+        FROM file f
+        JOIN video v ON f.file_id = v.cover_file_id
+        WHERE v.video_id IN
+        <foreach item="videoId" collection="videoIds" open="(" separator="," close=")">
+            #{videoId}
+        </foreach>
+    </select>
+
+    <select id="getCoversAndTitlesByVideosTitle" resultMap="coverPoMap">
+        SELECT v.video_title,f.file_name
+        FROM file f
+        JOIN video v ON f.file_id = v.cover_file_id
+        WHERE v.video_title IN
+        <foreach item="title" collection="titles" open="(" separator="," close=")">
+            #{title}
+        </foreach>
+    </select>
+
+
+    <select id="getUnwatchedVideoTitlesAndTags" resultMap="tagPoMap">
+        SELECT v.video_title,t.tag_name
+        FROM video v
+        JOIN video_tag vt ON v.video_id = vt.video_id
+        JOIN tag t ON vt.tag_id = t.tag_id
+        <where>
+            <if test="watchedTitles != null and watchedTitles.size() > 0">
+                v.video_title NOT IN
+                <foreach item="title" collection="watchedTitles" open="(" separator="," close=")">
+                    #{title}
+                </foreach>
+            </if>
+        </where>
+        LIMIT #{limit}
+    </select>
+
+    <select id="getVideosIdInTagsSortedByUploadTime" resultType="integer">
+        SELECT v.video_id
+        FROM video v
+        JOIN video_tag vt ON v.video_id = vt.video_id
+        JOIN tag t ON vt.tag_id = t.tag_id
+        <where>
+            <if test="tags != null and tags.size() > 0">
+                t.tag_name IN
+                <foreach item="tag" collection="tags" open="(" separator="," close=")">
+                    #{tag}
+                </foreach>
+            </if>
+        </where>
+        ORDER BY v.upload_time DESC
+        LIMIT #{limit}
+    </select>
+</mapper>
