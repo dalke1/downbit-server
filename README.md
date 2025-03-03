@@ -38,4 +38,4 @@ downbit:
 
 ### 3. 其它配置
 
-1. 在 `application.yml` 中将${}替换为自己的配置
+在 `application.yml` 中将${}替换为自己的配置
