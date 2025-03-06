@@ -6,6 +6,7 @@ import com.darc.downbit.common.constant.RoleType;
 import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
 import com.darc.downbit.common.dto.rep.PhoneLoginDto;
+import com.darc.downbit.common.dto.rep.RegisterDto;
 import com.darc.downbit.common.exception.DatabaseException;
 import com.darc.downbit.config.auth.AuthUser;
 import com.darc.downbit.dao.entity.Favorite;
@@ -19,6 +20,7 @@ import com.google.code.kaptcha.impl.DefaultKaptcha;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -41,6 +43,7 @@ import java.util.concurrent.TimeUnit;
  * @createDate 2024/11/20-4:08:49
  * @description
  */
+@Slf4j
 @Service
 public class AuthServiceImpl implements AuthService {
     @Resource
@@ -90,15 +93,18 @@ public class AuthServiceImpl implements AuthService {
 
         String password = loginDto.getPassword();
         String captcha = loginDto.getCaptcha();
-
+        RestResp<String> validateResult;
         // 如果loginKey不为空,则说明是注册后的登录,此时不需要验证码
-        if (loginKey == null || Boolean.FALSE.equals(stringRedisTemplate.hasKey(loginKey))) {
-            RestResp<String> failResult = validateCaptcha(captchaKey, captcha);
+        if (loginKey != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey(loginKey))) {
+            validateResult = RestResp.ok();
+        } else {
+            validateResult = validateCaptcha(captchaKey, captcha);
             // 验证码验证后,无论验证是否成功,删除redis中的验证码
             stringRedisTemplate.delete(captchaKey);
-            if (failResult != null) {
-                return failResult;
-            }
+        }
+
+        if (validateResult.code() != 200) {
+            return validateResult;
         }
 
         String newToken = authenticateUser(username, password, normalAuthenticationManager);
@@ -125,15 +131,14 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public RestResp<String> register(String captchaKey, LoginDto loginDto) {
-        String registerLock = "register_limit:" + loginDto.getUuid();
+    public RestResp<String> register(String captchaKey, RegisterDto registerDto) {
+        String registerLock = "register_limit:" + registerDto.getUuid();
         try {
             Boolean result = stringRedisTemplate.opsForValue().setIfAbsent(registerLock, "1", 10, TimeUnit.SECONDS);
             if (Boolean.FALSE.equals(result)) {
                 return RestResp.badRequest("注册过于频繁,请稍后再试");
             }
-
-            String username = loginDto.getUsername();
+            String username = registerDto.getUsername();
             // 查询数据库中是否已经有此用户,如果有此用户则不允许注册
             Wrapper<User> selectByUsername = new QueryWrapper<User>().eq("username", username);
             if (userMapper.selectOne(selectByUsername) != null) {
@@ -141,9 +146,9 @@ public class AuthServiceImpl implements AuthService {
                 return RestResp.badRequest("用户名:" + username + "已经被注册了");
             }
 
-            RestResp<String> failResult = validateCaptcha(captchaKey, loginDto.getCaptcha());
-            if (failResult != null) {
-                return failResult;
+            RestResp<String> validateResult = validateCaptcha(captchaKey, registerDto.getCaptcha());
+            if (validateResult.code() != 200) {
+                return validateResult;
             }
             // 验证码验证成功后,删除redis中的验证码
             stringRedisTemplate.delete(captchaKey);
@@ -151,7 +156,9 @@ public class AuthServiceImpl implements AuthService {
 
             User user = new User();
             user.setUsername(username);
-            user.setPassword(passwordEncoder.encode(loginDto.getPassword()));
+            user.setNickname(registerDto.getNickname());
+            user.setPhone(registerDto.getPhone());
+            user.setPassword(passwordEncoder.encode(registerDto.getPassword()));
             user.setIp(request.getRemoteAddr());
             user.setDevice(request.getHeader("User-Agent"));
             // 插入用户记录
@@ -215,7 +222,7 @@ public class AuthServiceImpl implements AuthService {
             return RestResp.unauthorized("验证码错误");
         }
 
-        return null;
+        return RestResp.ok();
     }
 
     /**
@@ -236,7 +243,7 @@ public class AuthServiceImpl implements AuthService {
             User user = authUser.getUser();
             user.setIp(request.getRemoteAddr());
             user.setDevice(request.getHeader("User-Agent"));
-            userMapper.update(user, new QueryWrapper<User>().eq("ip", user.getIp()).eq("device", user.getDevice()));
+            userMapper.update(user, new QueryWrapper<User>().eq("user_id", user.getUserId()));
             String newUuid = UUID.randomUUID().toString();
             user.setUuid(newUuid);
             String userKey = "loginUser:" + user.getUsername();

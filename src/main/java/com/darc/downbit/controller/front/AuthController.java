@@ -2,6 +2,7 @@ package com.darc.downbit.controller.front;
 
 import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
+import com.darc.downbit.common.dto.rep.RegisterDto;
 import com.darc.downbit.service.AuthService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
@@ -62,13 +63,13 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public Object register(@RequestBody @Validated LoginDto loginDto, HttpServletRequest request, HttpServletResponse response) {
+    public Object register(@RequestBody @Validated RegisterDto registerDto, HttpServletRequest request, HttpServletResponse response) {
         String captchaKey = request.getHeader("captcha-key");
         response.setStatus(HttpStatus.BAD_REQUEST.value());
         if (captchaKey == null) {
             return RestResp.badRequest("验证码key不能为空");
         }
-        return authService.register(captchaKey, loginDto);
+        return authService.register(captchaKey, registerDto);
     }
 
     @PostMapping("/logout")

@@ -35,6 +35,9 @@ public class User implements Serializable {
     @JsonProperty("mail")
     private String mail;
 
+    @JsonProperty("avatar_id")
+    private Integer avatarId;
+
     @JsonProperty("phone")
     private String phone;
 

@@ -16,12 +16,13 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
+import org.springframework.util.PathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 
 /**
  * @author darc
@@ -43,15 +44,16 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         List<String> passPath = filterProperties.getPassPath();
         String requestUri = request.getRequestURI();
+        PathMatcher pathMatcher = new AntPathMatcher();
         for (String path : passPath) {
-            if (requestUri.contains(path)) {
+            if (pathMatcher.match(path, requestUri)) {
                 filterChain.doFilter(request, response);
                 return;
             }
         }
         String ip = request.getRemoteAddr();
         String device = request.getHeader("User-Agent");
-        AuthUser authUser = new AuthUser();
+        AuthUser authUser;
         String jwt = request.getHeader("Authorization");
         if (jwt != null) {
             if (!jwt.startsWith("token:")) {
@@ -69,15 +71,15 @@ public class JwtFilter extends OncePerRequestFilter {
             if (authUser == null) {
                 throw new BadTokenException("令牌验证失败");
             }
-        } else if ("/api/video/recommend".equals(requestUri)) {
-            User guest = new User();
-            guest.setUsername("guest" + UUID.randomUUID());
-            guest.setIp(ip);
-            guest.setDevice(device);
-            authUser.setUser(guest);
-            authUser.setIsGuest(true);
         } else {
-            throw new BadTokenException("未携带令牌");
+            List<String> guestPath = filterProperties.getGuestPath();
+            for (String path : guestPath) {
+                if (pathMatcher.match(path, requestUri)) {
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+            }
+            throw new BadTokenException("没有令牌");
         }
         UsernamePasswordAuthenticationToken authentication =
                 new UsernamePasswordAuthenticationToken(authUser, null, null);

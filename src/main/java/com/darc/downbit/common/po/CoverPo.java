@@ -10,6 +10,8 @@ import lombok.Data;
  */
 @Data
 public class CoverPo {
+    private Integer fileId;
     private String videoTitle;
     private String coverFileName;
+    private String coverFileType;
 }

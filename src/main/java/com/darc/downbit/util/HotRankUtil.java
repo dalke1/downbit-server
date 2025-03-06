@@ -80,11 +80,11 @@ public class HotRankUtil {
                         videoId, watchCount, likeCount, favoriteCount, commentCount, activeTime, hoursPassed, decayFactor, hotScore);
 
                 // 批量添加到Redis
-                connection.zAdd("hotVideos:全站".getBytes(), hotScore, videoId.getBytes());
+                redisTemplate.opsForZSet().add("hotVideos:全站", videoId, hotScore);
 
                 // 按标签添加
                 for (String tag : videoCache.getTags()) {
-                    connection.zAdd(("hotVideos:" + tag).getBytes(), hotScore, videoId.getBytes());
+                    redisTemplate.opsForZSet().add("hotVideos:" + tag, videoId, hotScore);
                 }
             }
             return null;
@@ -126,14 +126,11 @@ public class HotRankUtil {
                             return hotScore == null ? 0 : hotScore;
                         })
                         .sum();
-                connection.zAdd("hotUploader".getBytes(), totalHotScore * decayFactor, String.valueOf(userId).getBytes());
+                redisTemplate.opsForZSet().add("hotUploader", String.valueOf(userId), totalHotScore * decayFactor);
             }
             return null;
         });
     }
-
-    public static final double LIKE_COMMENT_WEIGHT = 2.0;
-    public static final double REPLY_WEIGHT = 3.0;
 
     public void calculateHotComment(List<String> videoIdList) {
         if (videoIdList == null || videoIdList.isEmpty()) {
@@ -158,51 +155,43 @@ public class HotRankUtil {
                             }
                     ));
             String hotCommentKey = "hotComments:" + videoId;
-            redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
-                hotCommentsMap.forEach((key, value) -> connection.zAdd(hotCommentKey.getBytes(), value, key.getBytes()));
+            redisTemplate.executePipelined((RedisCallback<String>) connection -> {
+                hotCommentsMap.forEach((key, value) -> redisTemplate.opsForZSet().add(hotCommentKey, key, value));
                 return null;
             });
         }
     }
 
-    public Set<String> getHotVideos(int limit) {
-        Set<byte[]> execute = redisTemplate.execute((RedisCallback<Set<byte[]>>) connection ->
-                connection.zRevRange("hotVideos:全站".getBytes(), 0, limit)
-        );
-        if (execute == null || execute.isEmpty()) {
-            return Set.of();
+    public List<String> getHotVideos(int limit) {
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotVideos:全站", 0, limit - 1);
+        if (objects != null && !objects.isEmpty()) {
+            return objects.stream().map(String::valueOf).collect(Collectors.toList());
         }
-        return execute.stream().map(String::new).collect(Collectors.toSet());
+        return List.of();
     }
 
-    public Set<String> getHotVideosByTag(int limit, String tag) {
-        Set<byte[]> execute = redisTemplate.execute((RedisCallback<Set<byte[]>>) connection ->
-                connection.zRevRange(("hotVideos:" + tag).getBytes(), 0, limit)
-        );
-        if (execute == null || execute.isEmpty()) {
-            return Set.of();
+    public List<String> getHotVideosByTag(int limit, String tag) {
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotVideos:" + tag, 0, limit - 1);
+        if (objects != null && !objects.isEmpty()) {
+            return objects.stream().map(String::valueOf).collect(Collectors.toList());
         }
-        return execute.stream().map(String::new).collect(Collectors.toSet());
+        return List.of();
     }
 
-    public Set<String> getHotUploader(int limit) {
-        Set<byte[]> execute = redisTemplate.execute((RedisCallback<Set<byte[]>>) connection ->
-                connection.zRevRange("hotUploader".getBytes(), 0, limit)
-        );
-        if (execute == null || execute.isEmpty()) {
-            return Set.of();
+    public List<String> getHotUploader(int limit) {
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotUploader", 0, limit - 1);
+        if (objects != null && !objects.isEmpty()) {
+            return objects.stream().map(String::valueOf).collect(Collectors.toList());
         }
-        return execute.stream().map(String::new).collect(Collectors.toSet());
+        return List.of();
     }
 
-    public Set<String> getHotCommentsByVideoId(int start, int end, String videoId) {
+    public List<String> getHotCommentsByVideoId(int start, int end, String videoId) {
         String hotCommentKey = "hotComments:" + videoId;
-        Set<byte[]> execute = redisTemplate.execute((RedisCallback<Set<byte[]>>) connection ->
-                connection.zRevRange(hotCommentKey.getBytes(), start, end)
-        );
-        if (execute == null || execute.isEmpty()) {
-            return Set.of();
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange(hotCommentKey, start, end);
+        if (objects != null && !objects.isEmpty()) {
+            return objects.stream().map(String::valueOf).collect(Collectors.toList());
         }
-        return execute.stream().map(String::new).collect(Collectors.toSet());
+        return List.of();
     }
 }

@@ -34,6 +34,13 @@ public class GlobalExceptionHandler {
         return RestResp.badRequest(e.getMessage());
     }
 
+    @ExceptionHandler(FileNotFoundException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public RestResp<String> handleNoSuchVideoException(FileNotFoundException e) {
+        log.error(e.getMessage());
+        return RestResp.badRequest(e.getMessage());
+    }
+
     @ExceptionHandler(BadRequestException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public RestResp<String> handleBadRequestException(BadRequestException e) {

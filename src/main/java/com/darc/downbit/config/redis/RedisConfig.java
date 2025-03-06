@@ -21,7 +21,13 @@ public class RedisConfig {
         RedisTemplate<Object, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(redisConnectionFactory);
         //自定义设置序列化机制,把对象转为json
-        template.setDefaultSerializer(new GenericJackson2JsonRedisSerializer());
+        // 使用 StringRedisSerializer 序列化键
+        template.setKeySerializer(new StringRedisSerializer());
+        template.setHashKeySerializer(new StringRedisSerializer());
+
+        // 使用 GenericJackson2JsonRedisSerializer 序列化值
+        template.setValueSerializer(new GenericJackson2JsonRedisSerializer());
+        template.setHashValueSerializer(new GenericJackson2JsonRedisSerializer());
         return template;
     }
 

@@ -3,6 +3,7 @@ package com.darc.downbit.service;
 import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
 import com.darc.downbit.common.dto.rep.PhoneLoginDto;
+import com.darc.downbit.common.dto.rep.RegisterDto;
 
 import java.awt.image.BufferedImage;
 
@@ -19,7 +20,7 @@ public interface AuthService {
 
     BufferedImage getCaptcha(String key);
 
-    RestResp<String> register(String captchaKey, LoginDto loginDto);
+    RestResp<String> register(String captchaKey, RegisterDto registerDto);
 
     RestResp<String> logout();
 

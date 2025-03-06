@@ -7,6 +7,7 @@ import com.darc.downbit.common.dto.rep.FavoriteReqDto;
 import com.darc.downbit.common.dto.resp.CoverRespDto;
 import com.darc.downbit.config.auth.AuthConfig;
 import com.darc.downbit.dao.entity.Favorite;
+import com.darc.downbit.dao.entity.FavoriteVideo;
 import com.darc.downbit.dao.entity.User;
 import com.darc.downbit.dao.mapper.FavoriteMapper;
 import com.darc.downbit.dao.mapper.FavoriteVideoMapper;
@@ -17,8 +18,10 @@ import com.darc.downbit.util.RedisUtil;
 import jakarta.annotation.Resource;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 /**
  * @author 16216
@@ -49,7 +52,7 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite>
 
     @Override
     public boolean addFavorite(String favoriteName) {
-        Integer userId = AuthConfig.getAuthUser().getUser().getUserId();
+        Integer userId = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser().getUserId();
         Favorite favorite = new Favorite();
         favorite.setUserId(userId);
         favorite.setFavoriteName(favoriteName);
@@ -57,16 +60,19 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite>
     }
 
     @Override
+    @Transactional
     public boolean removeFavorite(String favoriteName) {
-        Integer userId = AuthConfig.getAuthUser().getUser().getUserId();
+        Integer userId = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser().getUserId();
         QueryWrapper<Favorite> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("favorite_name", favoriteName).eq("user_id", userId);
+        Favorite favorite = favoriteMapper.selectOne(queryWrapper);
+        favoriteVideoMapper.delete(new QueryWrapper<FavoriteVideo>().eq("favorite_id", favorite.getFavoriteId()));
         return favoriteMapper.delete(queryWrapper) > 0;
     }
 
     @Override
     public boolean addVideoToFavorite(FavoriteReqDto favoriteReqDto) {
-        User user = AuthConfig.getAuthUser().getUser();
+        User user = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser();
         Integer userId = user.getUserId();
         String favoriteName = favoriteReqDto.getFavoriteName();
         VideoCache videoCache = redisUtil.getVideoCacheFromRedis(favoriteReqDto.getVideoId());
@@ -78,7 +84,7 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite>
 
     @Override
     public boolean removeVideoFromFavorite(FavoriteReqDto favoriteReqDto) {
-        User user = AuthConfig.getAuthUser().getUser();
+        User user = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser();
         Integer userId = user.getUserId();
         String favoriteName = favoriteReqDto.getFavoriteName();
         VideoCache videoCache = redisUtil.getVideoCacheFromRedis(favoriteReqDto.getVideoId());
@@ -89,13 +95,13 @@ public class FavoriteServiceImpl extends ServiceImpl<FavoriteMapper, Favorite>
 
     @Override
     public List<String> getFavorites() {
-        Integer userId = AuthConfig.getAuthUser().getUser().getUserId();
+        Integer userId = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser().getUserId();
         return favoriteMapper.getFavoriteNamesByUserId(userId);
     }
 
     @Override
     public List<CoverRespDto> getFavoriteVideos(String favoriteName) {
-        User user = AuthConfig.getAuthUser().getUser();
+        User user = Objects.requireNonNull(AuthConfig.getAuthUser()).getUser();
         Integer userId = user.getUserId();
         String username = user.getUsername();
         return favoriteVideoMapper.getVideosIdByFavoriteName(userId, favoriteName).stream()

@@ -10,6 +10,7 @@
         <result property="password" column="password" jdbcType="VARCHAR"/>
         <result property="phone" column="phone" jdbcType="VARCHAR"/>
         <result property="mail" column="mail" jdbcType="VARCHAR"/>
+        <result property="avatarId" column="avatar_id" jdbcType="INTEGER"/>
         <result property="ip" column="ip" jdbcType="VARCHAR"/>
         <result property="device" column="device" jdbcType="VARCHAR"/>
         <result property="createdTime" column="created_time" jdbcType="TIMESTAMP"/>
@@ -17,6 +18,6 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        user_id,username,password,phone,mail,ip,device,created_time,updated_time
+        user_id,username,password,phone,mail,ip,avatarId,device,created_time,updated_time
     </sql>
 </mapper>

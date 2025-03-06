@@ -42,6 +42,11 @@ downbit:
       - /api/auth/mail_login
       - /api/auth/register
       - /api/auth/captcha
+    guest-path:
+      - /api/video/recommend
+      - /api/comment/hot/**
+      - /api/comment/new/**
+      - /api/comment/replies/**
   # 跨域配置
   cors:
     allow-origins:

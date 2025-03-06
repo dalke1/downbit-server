@@ -1,9 +1,11 @@
 package com.darc.downbit.controller.front;
 
 import com.darc.downbit.common.dto.RestResp;
+import com.darc.downbit.common.dto.rep.UploadVideoDto;
 import com.darc.downbit.common.dto.rep.VideoReqDto;
 import com.darc.downbit.common.dto.resp.VideoRespDto;
 import com.darc.downbit.service.VideoService;
+import com.darc.downbit.util.CosUtil;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
@@ -23,9 +25,28 @@ public class VideoController {
     @Resource
     VideoService videoService;
 
+    @Resource
+    CosUtil cosUtil;
+
     @GetMapping("/get_user_works")
     public Object getLoginUserVideos() {
         return RestResp.ok(videoService.geUserWorks());
+    }
+
+    @PostMapping("/upload")
+    public Object uploadVideo(@RequestBody @Validated UploadVideoDto uploadVideoDto) {
+        videoService.uploadVideo(uploadVideoDto);
+        return RestResp.ok();
+    }
+
+    @GetMapping("/get_upload_url/{type}/{fileName}")
+    public Object getUploadUrl(@PathVariable("type") String type, @PathVariable("fileName") String fileName) {
+        return RestResp.ok(videoService.getUploadUrl(fileName, type));
+    }
+
+    @GetMapping("/tags")
+    public Object getTags() {
+        return RestResp.ok(videoService.getTags());
     }
 
     @PostMapping("/add_history")

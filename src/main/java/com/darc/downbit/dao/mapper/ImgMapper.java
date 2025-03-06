@@ -20,8 +20,8 @@ public interface ImgMapper extends BaseMapper<Img> {
 
 
     @Select("select file.file_name from file" +
-            "    left join img on file.file_id = img.file_id" +
-            "    where img.user_id = (select user_id from user where username = #{username}) and file.file_type = 'avatar'")
+            "    left join user on file.file_id = user.avatar_id" +
+            "    where user.username = #{username}")
     String getAvatarByUsername(String username);
 
     @Select("select file.file_name from file" +

@@ -25,7 +25,7 @@ public interface VideoMapper extends BaseMapper<Video> {
             "    where video.video_id = #{videoId}")
     VideoPo getVideoByVideoId(Integer videoId);
 
-    @Select("select video.video_id,user.username as uploader,file.file_name,video.video_title,video.upload_time from file" +
+    @Select("select video.video_id,user.username as uploader,file.file_name,video.video_title,video.video_description,video.upload_time from file" +
             "    left join video on file.file_id = video.file_id" +
             "    left join user on user.user_id = video.user_id" +
             "    where video.video_id = #{videoId}")
@@ -41,6 +41,7 @@ public interface VideoMapper extends BaseMapper<Video> {
             "    left join video on file.file_id = video.cover_file_id" +
             "    where video.video_id = #{videoId}")
     String getCoverByVideoId(Integer videoId);
+
 
     @Select("select user.username as uploader,file.file_name,video.video_title from file" +
             "    left join video on file.file_id = video.file_id" +
@@ -115,6 +116,15 @@ public interface VideoMapper extends BaseMapper<Video> {
 
     @Select("select video.video_id from video where video.user_id = #{userId} order by upload_time desc limit #{limit}")
     List<Integer> getVideosIdByUserIdSortByUploadTime(Integer userId, Integer limit);
+
+
+    @Select("select file.file_type from file" +
+            "    left join video on file.file_id = video.file_id" +
+            "    where video.video_id = #{videoId}")
+    String getFileTypeByVideoId(Integer videoId);
+
+    @Select("select video.video_id from video")
+    List<Integer> getAllVideoId();
 }
 
 

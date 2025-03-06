@@ -35,5 +35,4 @@ public class UserController {
     public Object getAvatar() {
         return RestResp.ok(userService.getAvatar());
     }
-
 }

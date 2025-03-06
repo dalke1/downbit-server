@@ -1,11 +1,9 @@
 package com.darc.downbit.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.darc.downbit.common.dto.rep.UploadVideoDto;
 import com.darc.downbit.common.dto.rep.VideoReqDto;
-import com.darc.downbit.common.dto.resp.CoverRespDto;
-import com.darc.downbit.common.dto.resp.HistoryVideoRespDto;
-import com.darc.downbit.common.dto.resp.LikeVideoRespDto;
-import com.darc.downbit.common.dto.resp.VideoRespDto;
+import com.darc.downbit.common.dto.resp.*;
 import com.darc.downbit.dao.entity.Video;
 
 import java.util.List;
@@ -17,6 +15,12 @@ import java.util.List;
  */
 public interface VideoService extends IService<Video> {
     List<CoverRespDto> geUserWorks();
+
+    void uploadVideo(UploadVideoDto uploadVideoDto);
+
+    String getUploadUrl(String fileName, String type);
+
+    List<TagRespDto> getTags();
 
     void addHistory(VideoReqDto videoReqDto);
 

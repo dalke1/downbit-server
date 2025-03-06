@@ -15,4 +15,5 @@ import java.util.List;
 @Data
 public class FilterProperties {
     List<String> passPath;
+    List<String> guestPath;
 }

@@ -22,11 +22,11 @@ import java.util.List;
 public class VideoCache {
     @Id
     private String videoId;
+    private String uploader;
     private String videoTitle;
     private String fileName;
     private String coverFileName;
     private String videoDescription;
-    private String uploader;
     private List<String> tags;
     private Date uploadTime;
 }

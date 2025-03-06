@@ -43,20 +43,28 @@
         FROM video v
         JOIN file f ON f.file_id = v.file_id
         JOIN user u ON v.user_id = u.user_id
-        WHERE v.video_title IN
-        <foreach item="title" collection="titles" open="(" separator="," close=")">
-            #{title}
-        </foreach>
+        <where>
+            <if test="titles != null and titles.size() > 0">
+                v.video_title IN
+                <foreach item="title" collection="titles" open="(" separator="," close=")">
+                    #{title}
+                </foreach>
+            </if>
+        </where>
     </select>
 
     <select id="getCoverFilesByVideoTitles" resultType="String">
         SELECT f.file_name
         FROM file f
         JOIN video v ON f.file_id = v.cover_file_id
-        WHERE v.video_title IN
-        <foreach item="title" collection="titles" open="(" separator="," close=")">
-            #{title}
-        </foreach>
+        <where>
+            <if test="titles != null and titles.size() > 0">
+                v.video_title IN
+                <foreach item="title" collection="titles" open="(" separator="," close=")">
+                    #{title}
+                </foreach>
+            </if>
+        </where>
     </select>
 
 
@@ -64,30 +72,42 @@
         SELECT f.file_name
         FROM file f
         JOIN video v ON f.file_id = v.file_id
-        WHERE v.video_title IN
-        <foreach item="title" collection="titles" open="(" separator="," close=")">
-            #{title}
-        </foreach>
+        <where>
+            <if test="titles != null and titles.size() > 0">
+                v.video_title IN
+                <foreach item="title" collection="titles" open="(" separator="," close=")">
+                    #{title}
+                </foreach>
+            </if>
+        </where>
     </select>
 
     <select id="getCoversAndTitlesByVideosId" resultMap="coverPoMap">
         SELECT v.video_title,f.file_name
         FROM file f
         JOIN video v ON f.file_id = v.cover_file_id
-        WHERE v.video_id IN
-        <foreach item="videoId" collection="videoIds" open="(" separator="," close=")">
-            #{videoId}
-        </foreach>
+        <where>
+            <if test="videoIds != null and videoIds.size() > 0">
+                v.video_id IN
+                <foreach item="videoId" collection="videoIds" open="(" separator="," close=")">
+                    #{videoId}
+                </foreach>
+            </if>
+        </where>
     </select>
 
     <select id="getCoversAndTitlesByVideosTitle" resultMap="coverPoMap">
         SELECT v.video_title,f.file_name
         FROM file f
         JOIN video v ON f.file_id = v.cover_file_id
-        WHERE v.video_title IN
-        <foreach item="title" collection="titles" open="(" separator="," close=")">
-            #{title}
-        </foreach>
+        <where>
+            <if test="titles != null and titles.size() > 0">
+                v.video_title IN
+                <foreach item="title" collection="titles" open="(" separator="," close=")">
+                    #{title}
+                </foreach>
+            </if>
+        </where>
     </select>
 
 

@@ -17,7 +17,7 @@ public interface CommentService {
 
     List<CommentRespDto> getNewComments(String videoTitle, Integer startIndex);
 
-    List<CommentRespDto> getReplies(String commentId);
+    List<CommentRespDto> getReplies(String commentId, Integer startIndex);
 
     Integer getCommentCount(String videoTitle);
 

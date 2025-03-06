@@ -42,9 +42,9 @@ public class CommentController {
         return RestResp.ok();
     }
 
-    @GetMapping("/replies/{parent_id}")
-    public Object getReplies(@PathVariable("parent_id") String parentId) {
-        List<CommentRespDto> replies = commentService.getReplies(parentId);
+    @GetMapping("/replies/{parent_id}/{start_index}")
+    public Object getReplies(@PathVariable("parent_id") String parentId, @PathVariable("start_index") String startIndex) {
+        List<CommentRespDto> replies = commentService.getReplies(parentId, Integer.parseInt(startIndex));
         if (replies != null) {
             return RestResp.ok(replies);
         }

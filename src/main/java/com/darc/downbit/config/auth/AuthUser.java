@@ -22,7 +22,6 @@ import java.util.List;
 @NoArgsConstructor
 public class AuthUser implements UserDetails {
     private User user;
-    private Boolean isGuest = false;
 
     @Override
     @JsonIgnore

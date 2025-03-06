@@ -6,6 +6,7 @@ import com.darc.downbit.common.dto.rep.CommentReqDto;
 import com.darc.downbit.common.dto.rep.ReplyReqDto;
 import com.darc.downbit.common.dto.resp.CommentRespDto;
 import com.darc.downbit.common.exception.BadRequestException;
+import com.darc.downbit.config.auth.AuthConfig;
 import com.darc.downbit.config.auth.AuthUser;
 import com.darc.downbit.dao.entity.Comment;
 import com.darc.downbit.dao.entity.User;
@@ -17,6 +18,7 @@ import com.darc.downbit.util.CosUtil;
 import com.darc.downbit.util.HotRankUtil;
 import com.darc.downbit.util.RedisUtil;
 import jakarta.annotation.Resource;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -26,7 +28,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -35,6 +36,7 @@ import java.util.concurrent.TimeUnit;
  * @createDate 2025/2/14-22:10:12
  * @description
  */
+@Slf4j
 @Service
 public class CommentServiceImpl implements CommentService {
 
@@ -61,13 +63,15 @@ public class CommentServiceImpl implements CommentService {
     @Resource
     private HotRankUtil hotRankUtil;
 
+
     @Override
     public List<CommentRespDto> getHotComments(String videoId, Integer startIndex) {
-        Set<String> hotComments = hotRankUtil.getHotCommentsByVideoId(startIndex, startIndex + COMMENT_SIZE - 1, videoId);
+        log.info(String.valueOf(startIndex));
+        List<String> hotComments = hotRankUtil.getHotCommentsByVideoId(startIndex, startIndex + COMMENT_SIZE - 1, videoId);
         if (hotComments == null || hotComments.isEmpty()) {
-            return getNewComments(videoId, startIndex);
+            return null;
         }
-
+        log.info(hotComments.toString());
         List<Comment> comments = hotComments.stream()
                 .map(commentId -> redisUtil.getCommentFromRedis(commentId)).toList();
         return generateCommentsResp(comments, true);
@@ -94,8 +98,11 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<CommentRespDto> getReplies(String commentId) {
-        List<Comment> replies = mongoTemplate.find(Query.query(Criteria.where("parentId").is(commentId)), Comment.class);
+    public List<CommentRespDto> getReplies(String commentId, Integer startIndex) {
+        Query query = Query.query(Criteria.where("parentId").is(commentId));
+        query.with(Sort.by(Sort.Direction.ASC, "commentTime"));
+        query.skip(startIndex).limit(COMMENT_SIZE);
+        List<Comment> replies = mongoTemplate.find(query, Comment.class);
         if (replies.isEmpty()) {
             return null;
         }
@@ -117,6 +124,8 @@ public class CommentServiceImpl implements CommentService {
         newComment.setUsername(authUser.getUser().getUsername());
         newComment.setCommentTime(System.currentTimeMillis());
         mongoTemplate.insert(newComment);
+        redisTemplate.opsForZSet().add("hotComments:" + videoId, newComment.getId(), 0);
+        redisUtil.getBloomFilter("commentBloomFilter", 1000000, 0.03).add(newComment.getId());
 
         redisTemplate.opsForHash().increment("commentCount", videoId, 1);
         VideoCache videoCache = redisUtil.getVideoCacheFromRedis(videoId);
@@ -146,21 +155,18 @@ public class CommentServiceImpl implements CommentService {
         newComment.setUsername(authUser.getUser().getUsername());
         newComment.setCommentTime(System.currentTimeMillis());
         mongoTemplate.save(newComment);
+        redisUtil.getBloomFilter("commentBloomFilter", 1000000, 0.03).add(newComment.getId());
         redisTemplate.opsForHash().increment("commentCount", videoId, 1);
         redisTemplate.opsForZSet().add("activeVideos", videoId, System.currentTimeMillis());
     }
 
     @Override
     public void likeComment(String commentId, Boolean isParent) {
-        Comment comment = mongoTemplate.findById(commentId, Comment.class);
-        if (comment == null) {
-            throw new BadRequestException("评论不存在");
-        }
+        Comment comment = redisUtil.getCommentFromRedis(commentId);
         comment.setLikeCount(comment.getLikeCount() + 1);
         mongoTemplate.save(comment);
-        if (isParent) {
-            redisTemplate.opsForValue().set("hotComments:" + commentId, comment, 2, TimeUnit.HOURS);
-        }
+        // 在redis中更新缓存
+        redisTemplate.opsForValue().set("commentCache:" + commentId, comment, 2, TimeUnit.HOURS);
         // 在redis中缓存用户喜欢的评论
         AuthUser authUser = (AuthUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         redisTemplate.opsForSet().add("likeComments:" + authUser.getUser().getUsername(), commentId);
@@ -184,8 +190,13 @@ public class CommentServiceImpl implements CommentService {
 
 
     public List<CommentRespDto> generateCommentsResp(List<Comment> comments, Boolean isParent) {
-        AuthUser authUser = (AuthUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String username = authUser.getUser().getUsername();
+        AuthUser authUser = AuthConfig.getAuthUser();
+        String username;
+        if (authUser != null) {
+            username = authUser.getUser().getUsername();
+        } else {
+            username = null;
+        }
         return comments.stream().map(comment -> {
             CommentRespDto commentRespDto = new CommentRespDto();
             commentRespDto.setId(comment.getId());
@@ -194,7 +205,11 @@ public class CommentServiceImpl implements CommentService {
             commentRespDto.setNickname(userMapper.findNicknameByUsername(comment.getUsername()));
             commentRespDto.setCommentText(comment.getCommentText());
             commentRespDto.setLikeCount(comment.getLikeCount());
-            commentRespDto.setIsLike(redisTemplate.opsForSet().isMember("likeComments:" + username, comment.getId()));
+            if (username != null) {
+                commentRespDto.setIsLike(redisTemplate.opsForSet().isMember("likeComments:" + username, comment.getId()));
+            } else {
+                commentRespDto.setIsLike(false);
+            }
             commentRespDto.setCommentTime(CommonUtil.formatTimeString(comment.getCommentTime()));
             commentRespDto.setReplyTo(comment.getReplyTo());
             if (isParent) {

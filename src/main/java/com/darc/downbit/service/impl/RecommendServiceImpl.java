@@ -72,7 +72,7 @@ public class RecommendServiceImpl implements RecommendService {
         // 获取前3个标签的热门视频,并取并集
         Set<String> videoIdSet = new HashSet<>();
         for (String tag : topTags) {
-            Set<String> hotTagVideos = hotRankUtil.getHotVideosByTag(-1, tag);
+            List<String> hotTagVideos = hotRankUtil.getHotVideosByTag(-1, tag);
             videoIdSet.addAll(hotTagVideos);
         }
 
@@ -85,7 +85,7 @@ public class RecommendServiceImpl implements RecommendService {
         if (redisTemplate.hasKey(recommendKey)) {
             Long size = redisTemplate.opsForZSet().size(recommendKey);
             if (size != null && size <= 1) {
-                Set<String> storedRecommend = redisTemplate.opsForZSet().reverseRange(recommendKey, 0, -1);
+                Set<String> storedRecommend = redisTemplate.opsForZSet().reverseRangeByScore(recommendKey, 0, -1);
                 if (storedRecommend != null) {
                     storedRecommend.forEach(bloomFilter::add);
                     videoIdSet = videoIdSet.stream().filter(videoId -> !bloomFilter.contains(videoId)).collect(Collectors.toSet());
@@ -106,7 +106,7 @@ public class RecommendServiceImpl implements RecommendService {
 
         // 如果不足20个,则从全站热门视频补充至20个
         if (videoIdSet.size() < 20) {
-            Set<String> globalHotVideos = hotRankUtil.getHotVideos(-1);
+            List<String> globalHotVideos = hotRankUtil.getHotVideos(-1);
 
             videoIdSet.addAll(globalHotVideos.stream()
                     .filter(videoId -> !bloomFilter.contains(videoId))

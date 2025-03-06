@@ -94,7 +94,11 @@ public class AuthConfig {
     }
 
     public static AuthUser getAuthUser() {
-
-        return (AuthUser) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        if (principal instanceof AuthUser authUser) {
+            return authUser;
+        } else {
+            return null;
+        }
     }
 }
