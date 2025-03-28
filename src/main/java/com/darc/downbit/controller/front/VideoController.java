@@ -1,8 +1,12 @@
 package com.darc.downbit.controller.front;
 
 import com.darc.downbit.common.dto.RestResp;
+import com.darc.downbit.common.dto.rep.SearchVideoReq;
+import com.darc.downbit.common.dto.rep.UpdateVideoDto;
 import com.darc.downbit.common.dto.rep.UploadVideoDto;
 import com.darc.downbit.common.dto.rep.VideoReqDto;
+import com.darc.downbit.common.dto.resp.SearchVideoResp;
+import com.darc.downbit.common.dto.resp.VideoPage;
 import com.darc.downbit.common.dto.resp.VideoRespDto;
 import com.darc.downbit.service.VideoService;
 import com.darc.downbit.util.CosUtil;
@@ -11,6 +15,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.util.StopWatch;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * @author darc
@@ -95,8 +101,85 @@ public class VideoController {
         return RestResp.ok(videoService.getLikes());
     }
 
-    @GetMapping("/get_videos")
-    public Object getVideoList() {
+    @GetMapping("/interest_tags")
+    public Object getInterestTags() {
+        return RestResp.ok(videoService.getInterestTags());
+    }
+
+    @GetMapping("/get_new_videos")
+    public Object getNewVideos(@RequestParam(value = "videoId", required = false) String videoId) {
+        List<VideoRespDto> newVideos = videoService.getNewVideos(videoId);
+        if (newVideos != null && !newVideos.isEmpty()) {
+            return RestResp.ok(newVideos);
+        }
         return RestResp.ok();
+    }
+
+    @GetMapping("/get_hot_videos")
+    public Object getHotVideos(@RequestParam(value = "index", required = false) Integer index, @RequestParam(value = "copyId", required = false) String copyId) {
+        VideoPage hotVideos = videoService.getHotVideos(copyId, index);
+        if (hotVideos != null) {
+            log.info("视频信息:{}", hotVideos);
+            return RestResp.ok(hotVideos);
+        }
+        return RestResp.ok();
+    }
+
+    @GetMapping("/get_tag_videos/{tag}")
+    public Object getTagVideos(@PathVariable("tag") String tag,
+                               @RequestParam(value = "index", required = false) Integer index,
+                               @RequestParam(value = "copyId", required = false) String copyId) {
+        VideoPage tagHotVideos = videoService.getHotVideosByTag(tag, copyId, index);
+        if (tagHotVideos != null) {
+            return RestResp.ok(tagHotVideos);
+        }
+        return RestResp.ok();
+    }
+
+    @GetMapping("/get_video_info/{videoId}")
+    public Object getVideoInfo(@PathVariable("videoId") String videoId) {
+        return RestResp.ok(videoService.getVideoInfo(videoId));
+    }
+
+    @GetMapping("/get_related_videos/{videoId}")
+    public Object getRelatedVideos(@PathVariable("videoId") String videoId) {
+        List<VideoRespDto> relatedVideoList = videoService.getRelatedVideoList(videoId);
+        if (relatedVideoList.isEmpty()) {
+            return RestResp.ok();
+        }
+        return RestResp.ok(relatedVideoList);
+    }
+
+    @GetMapping("/get_update_Info")
+    public Object getUpdateInfo(@RequestParam("videoId") String videoId) {
+        return RestResp.ok(videoService.getVideoForUpdate(videoId));
+    }
+
+    @PostMapping("/update_video")
+    public Object updateVideo(@RequestBody @Validated UpdateVideoDto updateVideoDto) {
+        videoService.updateVideo(updateVideoDto);
+        return RestResp.ok();
+    }
+
+    @DeleteMapping("/delete_video")
+    public Object deleteVideo(@RequestParam("videoId") String videoId) {
+        videoService.deleteVideo(videoId);
+        return RestResp.ok();
+    }
+
+
+    @GetMapping("/search")
+    public RestResp<SearchVideoResp> searchVideos(
+            @RequestParam("query") String query,
+            @RequestParam(value = "page", defaultValue = "1") Integer page,
+            @RequestParam(value = "sortBy", defaultValue = "relevance") String sortBy,
+            @RequestParam(value = "size", defaultValue = "12") Integer size
+    ) {
+        SearchVideoReq dto = new SearchVideoReq();
+        dto.setQuery(query);
+        dto.setPage(page);
+        dto.setSortBy(sortBy);
+        dto.setSize(size);
+        return RestResp.ok(videoService.searchVideos(dto));
     }
 }

@@ -3,10 +3,12 @@ package com.darc.downbit.util;
 import com.darc.downbit.common.exception.EmptyFileNameException;
 import com.darc.downbit.dao.mapper.ImgMapper;
 import com.qcloud.cos.COSClient;
-import com.qcloud.cos.Headers;
+import com.qcloud.cos.exception.CosClientException;
+import com.qcloud.cos.exception.MultiObjectDeleteException;
 import com.qcloud.cos.http.HttpMethodName;
-import com.qcloud.cos.model.GeneratePresignedUrlRequest;
-import com.qcloud.cos.model.ResponseHeaderOverrides;
+import com.qcloud.cos.model.DeleteObjectsRequest;
+import com.qcloud.cos.model.DeleteObjectsResult;
+import com.tencent.cloud.cos.util.MD5;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,8 +18,8 @@ import org.springframework.stereotype.Component;
 import java.net.URL;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -32,6 +34,12 @@ public class CosUtil {
 
     @Value("${downbit.cos.bucket}")
     private String bucket;
+
+    @Value("${downbit.cos.cdn}")
+    private String cdn;
+
+    @Value("${downbit.cos.cdn-key}")
+    private String cdnKey;
 
     @Resource
     COSClient cosClient;
@@ -51,14 +59,17 @@ public class CosUtil {
         }
         String fileName = imgMapper.getAvatarByUsername(username);
         if (fileName == null) {
-//            throw new EmptyFileNameException("头像文件名为空");
-            return redisTemplate.opsForValue().get("avatarUrl:root");
+            if (redisTemplate.hasKey("avatarUrl:common")) {
+                return redisTemplate.opsForValue().get("avatarUrl:common");
+            } else {
+                String url = getUrl("/common/dalke.jpg");
+                redisTemplate.opsForValue().set("avatarUrl:common", url, 1, TimeUnit.HOURS);
+                return url;
+            }
         }
-        String signature = "avatar:" + UUID.randomUUID();
-        String key = "avatar/" + username + "/" + fileName;
-
-        String url = getUrl(key, HttpMethodName.GET, signature, "image/jpeg");
-        redisTemplate.opsForValue().set("avatarUrl:" + username, url, 1, TimeUnit.DAYS);
+        String uri = "/avatar/" + username + "/" + fileName;
+        String url = getUrl(uri);
+        redisTemplate.opsForValue().set("avatarUrl:" + username, url, 1, TimeUnit.HOURS);
         return url;
     }
 
@@ -69,10 +80,9 @@ public class CosUtil {
         if (redisTemplate.hasKey("coverUrl:" + fileName)) {
             return redisTemplate.opsForValue().get("coverUrl:" + fileName);
         }
-        String signature = "cover:" + UUID.randomUUID();
-        String key = "cover/" + username + "/" + fileName;
-        String url = getUrl(key, HttpMethodName.GET, signature, "image/jpeg");
-        redisTemplate.opsForValue().set("coverUrl:" + fileName, url, 1, TimeUnit.DAYS);
+        String uri = "/cover/" + username + "/" + fileName;
+        String url = getUrl(uri);
+        redisTemplate.opsForValue().set("coverUrl:" + fileName, url, 1, TimeUnit.HOURS);
         return url;
     }
 
@@ -83,46 +93,28 @@ public class CosUtil {
         if (redisTemplate.hasKey("videoUrl:" + fileName)) {
             return redisTemplate.opsForValue().get("videoUrl:" + fileName);
         }
-        String signature = "video:" + UUID.randomUUID();
-        String key = "video/" + username + "/" + fileName;
-        String url = getUrl(key, HttpMethodName.GET, signature, "video/mp4");
-        redisTemplate.opsForValue().set("videoUrl:" + fileName, url, 1, TimeUnit.DAYS);
+        String uri = "/video/" + username + "/" + fileName;
+        String url = getUrl(uri);
+        redisTemplate.opsForValue().set("videoUrl:" + fileName, url, 1, TimeUnit.HOURS);
         return url;
     }
 
     public String getUploadAvatarUrl(String username, String filename) {
-        String key = "avatar/" + username + "/" + filename;
-        return getUploadUrl(key);
+        return getUploadUrl("avatar/" + username + "/" + filename);
     }
 
     public String getUploadCoverUrl(String username, String filename) {
-        String key = "cover/" + username + "/" + filename;
-        return getUploadUrl(key);
+        return getUploadUrl("cover/" + username + "/" + filename);
     }
 
     public String getUploadVideoUrl(String username, String filename) {
-        String key = "video/" + username + "/" + filename;
-        return getUploadUrl(key);
+        return getUploadUrl("video/" + username + "/" + filename);
     }
 
-    public String getUrl(String key, HttpMethodName method, String signature, String contentType) {
-        GeneratePresignedUrlRequest request = new GeneratePresignedUrlRequest(bucket, key, method);
-        if (method == HttpMethodName.GET) {
-            ResponseHeaderOverrides responseHeaders = new ResponseHeaderOverrides();
-            responseHeaders.setContentType(contentType);
-            responseHeaders.setContentLanguage("zh-CN");
-            // 设置响应头为需要缓存
-            responseHeaders.setCacheControl("max-age=" + TimeUnit.DAYS.toMillis(1) + TimeUnit.MINUTES.toMillis(10));
-            request.setResponseHeaders(responseHeaders);
-        }
-        Date expiration = new Date(System.currentTimeMillis() + TimeUnit.DAYS.toMillis(1) + TimeUnit.MINUTES.toMillis(10));
-        request.setExpiration(expiration);
-        // 填写本次请求的头部，需与实际请求相同，能够防止用户篡改此签名的 HTTP 请求的头部
-        String host = cosClient.getClientConfig().getEndpointBuilder().buildGeneralApiEndpoint(bucket);
-        request.putCustomRequestHeader(Headers.HOST, host);
-        // 填写本次请求的参数，需与实际请求相同，能够防止用户篡改此签名的 HTTP 请求的参数
-        request.addRequestParameter("signature", signature);
-        return cosClient.generatePresignedUrl(request).toString();
+    public String getUrl(String uri) {
+        long timestamp = System.currentTimeMillis();
+        String signature = MD5.stringToMD5(cdnKey + uri + timestamp);
+        return cdn + uri + "?sign=" + signature + "&t=" + timestamp;
     }
 
 
@@ -134,5 +126,24 @@ public class CosUtil {
         Date uploadExpiration = new Date(System.currentTimeMillis() + TimeUnit.MINUTES.toMillis(10));
         URL url = cosClient.generatePresignedUrl(bucket, key, uploadExpiration, HttpMethodName.PUT, headers, params);
         return url.toString();
+    }
+
+    public void deleteFiles(List<String> fileNameList) {
+        DeleteObjectsRequest deleteObjectsRequest = new DeleteObjectsRequest(bucket);
+        List<DeleteObjectsRequest.KeyVersion> keyList = fileNameList.stream()
+                .map(DeleteObjectsRequest.KeyVersion::new)
+                .toList();
+        deleteObjectsRequest.setKeys(keyList);
+        try {
+            DeleteObjectsResult deleteObjectsResult = cosClient.deleteObjects(deleteObjectsRequest);
+            List<DeleteObjectsResult.DeletedObject> deleteObjectResultArray = deleteObjectsResult.getDeletedObjects();
+        } catch (MultiObjectDeleteException mde) {
+            // 如果部分删除成功部分失败, 返回 MultiObjectDeleteException
+            List<DeleteObjectsResult.DeletedObject> deleteObjects = mde.getDeletedObjects();
+            List<MultiObjectDeleteException.DeleteError> deleteErrors = mde.getErrors();
+            log.info(mde.getMessage());
+        } catch (CosClientException e) {
+            log.error(e.getMessage());
+        }
     }
 }

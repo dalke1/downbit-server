@@ -1,6 +1,6 @@
 package com.darc.downbit.service.api;
 
-import com.darc.downbit.config.htttp.SmsApi;
+import com.darc.downbit.config.http.SmsApi;
 import jakarta.annotation.Resource;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;

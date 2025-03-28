@@ -5,6 +5,8 @@ import com.qcloud.cos.COSClient;
 import com.qcloud.cos.ClientConfig;
 import com.qcloud.cos.auth.BasicCOSCredentials;
 import com.qcloud.cos.auth.COSCredentials;
+import com.qcloud.cos.endpoint.UserSpecifiedEndpointBuilder;
+import com.qcloud.cos.http.HttpProtocol;
 import com.qcloud.cos.region.Region;
 import lombok.Data;
 import org.springframework.boot.SpringBootConfiguration;
@@ -21,7 +23,7 @@ import org.springframework.context.annotation.Bean;
 @SpringBootConfiguration
 @ConfigurationProperties(prefix = "downbit.cos")
 public class CosConfig {
-    private String bucket;
+    private String endpoint;
     private String region;
     private String secretId;
     private String secretKey;
@@ -31,6 +33,10 @@ public class CosConfig {
         COSCredentials cred = new BasicCOSCredentials(secretId, secretKey);
         ClientConfig clientConfig = new ClientConfig();
         clientConfig.setRegion(new Region(region));
+        clientConfig.setHttpProtocol(HttpProtocol.https);
+        String serviceApiEndpoint = "service.cos.myqcloud.com";
+        UserSpecifiedEndpointBuilder endPointBuilder = new UserSpecifiedEndpointBuilder(endpoint, serviceApiEndpoint);
+        clientConfig.setEndpointBuilder(endPointBuilder);
         return new COSClient(cred, clientConfig);
     }
 }

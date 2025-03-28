@@ -4,16 +4,20 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.List;
+
 /**
  * @author darc
  * @version 0.1
- * @createDate 2025/3/6-01:25:52
+ * @createDate 2025/3/28-07:22:34
  * @description
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class TagRespDto {
-    private String code;
-    private String name;
+public class UpdateInfo {
+    private String videoId;
+    private String title;
+    private String videoDescription;
+    private List<TagRespDto> tags;
 }

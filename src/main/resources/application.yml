@@ -2,18 +2,20 @@ spring:
   application:
     name: downbit-Server
   datasource:
-    url: jdbc:mysql://localhost:3306/downbit?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://${MYSQL_HOST:localhost}:3306/downbit?allowPublicKeyRetrieval=true&useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai
     username: root
     password: ${MYSQL_PASS}
   data:
     redis:
-      host: localhost
+      host: ${REDIS_HOST:localhost}
       port: 6379
       password: ${REDIS_PASS}
     mongodb:
-      uri: mongodb://localhost:27017/downbit
+      uri: mongodb://${MONGO_HOST:localhost}:27017/downbit
+      username: ${MONGO_USER}
+      password: ${MONGO_PASS}
   kafka:
-    bootstrap-servers: ${REMOTE_ADDR}:9092
+    bootstrap-servers: ${KAFKA_HOST:localhost}:9092
     producer:
       #消息值的序列化规则
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
@@ -23,11 +25,11 @@ mybatis-plus:
 
 server:
   port: 8081
+  address: 0.0.0.0
 
 
 #自定义的配置属性
 downbit:
-  host: downbit.cn
   # jwt的配置
   jwt:
     expiration: 432000000 # 1000*60*60*24*5  5天,单位毫秒,作为token和redis中的key的过期时间
@@ -39,7 +41,7 @@ downbit:
     pass-path:
       - /api/auth/username_login
       - /api/auth/phone_login
-      - /api/auth/mail_login
+      - /api/auth/smsCode
       - /api/auth/register
       - /api/auth/captcha
     guest-path:
@@ -47,15 +49,29 @@ downbit:
       - /api/comment/hot/**
       - /api/comment/new/**
       - /api/comment/replies/**
+      - /api/video/interest_tags
+      - /api/video/get_new_videos
+      - /api/video/get_hot_videos
+      - /api/video/get_tag_videos/**
+      - /api/video/get_video_info/**
+      - /api/video/get_related_videos/**
+      - /api/video/search
   # 跨域配置
   cors:
     allow-origins:
-      - http://localhost:8088
       - http://localhost
+      - http://localhost:8088
+      - https://dlux.downbit.cn
+      - https://www.downbit.cn
   # 腾讯云对象存储(cos)的配置
   cos:
-    bucket: ${COS_BUCKET}
-    region: ${COS_REGION}
-    secret-id: ${COS_SECRET_ID}
-    secret-key: ${COS_SECRET_KEY}
+    bucket: ${COS_BUCKET} #存储桶名称
+    endpoint: ${COS_ENDPOINT} #存储桶自定义域名
+    region: ${COS_REGION} #存储桶所在地域
+    cdn: ${COS_CDN} #存储桶CDN地址
+    cdn-key: ${CDN_KEY} #存储桶CDN密钥
+    secret-id: ${COS_SECRET_ID} #腾讯云secretId
+    secret-key: ${COS_SECRET_KEY} #腾讯云secretKey
+  env: ${ENV:dev}
+  recommend: ${RECOMMEND:yes}
 

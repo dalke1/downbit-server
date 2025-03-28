@@ -2,6 +2,7 @@ package com.darc.downbit.dao.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.darc.downbit.dao.entity.VideoTag;
+import org.apache.ibatis.annotations.Delete;
 
 /**
  * @author 16216
@@ -10,7 +11,8 @@ import com.darc.downbit.dao.entity.VideoTag;
  * @Entity com.darc.downbit.dao.entity.VideoTag
  */
 public interface VideoTagMapper extends BaseMapper<VideoTag> {
-
+    @Delete("delete from video_tag where video_id = #{videoId}")
+    int deleteVideoTagByVideoId(Integer videoId);
 }
 
 

@@ -26,4 +26,7 @@ public class PhoneLoginDto {
     @NotNull(message = "验证码不能为空")
     @NotBlank(message = "验证码不能为空格")
     private String captcha;
+    @NotNull(message = "uuid不能为空")
+    @NotBlank(message = "uuid不能为空格")
+    private String uuid;
 }

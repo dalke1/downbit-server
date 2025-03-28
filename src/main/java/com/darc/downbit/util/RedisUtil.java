@@ -3,6 +3,7 @@ package com.darc.downbit.util;
 import com.darc.downbit.common.cache.VideoCache;
 import com.darc.downbit.common.exception.CommentNotFoundException;
 import com.darc.downbit.common.exception.NoSuchVideoException;
+import com.darc.downbit.common.po.VideoTimePo;
 import com.darc.downbit.dao.entity.Comment;
 import com.darc.downbit.dao.mapper.VideoMapper;
 import jakarta.annotation.Resource;
@@ -64,6 +65,9 @@ public class RedisUtil {
                     if (videoCache == null) {
                         throw new NoSuchVideoException("没有该视频,视频id: " + id);
                     }
+                    VideoTimePo videoTimePo = videoMapper.selectUploadTimeAndDurationByVideoId(id);
+                    videoCache.setUploadTime(videoTimePo.getUploadTime().getTime());
+                    videoCache.setDuration(CommonUtil.formatDuration(videoTimePo.getDuration()));
                     videoCache.setTags(videoMapper.getTagsByVideoId(id));
                     videoCache.setCoverFileName(videoMapper.getCoverByVideoId(id));
                     // 将视频信息存入mongoDb

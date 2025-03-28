@@ -1,7 +1,6 @@
 package com.darc.downbit.config.auth;
 
 import com.darc.downbit.config.auth.filter.JwtFilter;
-import com.darc.downbit.config.auth.userdetailservice.NormalLoginDetailsService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;

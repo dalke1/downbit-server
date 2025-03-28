@@ -7,14 +7,18 @@ import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
 import com.darc.downbit.common.dto.rep.PhoneLoginDto;
 import com.darc.downbit.common.dto.rep.RegisterDto;
+import com.darc.downbit.common.dto.resp.PhoneLoginResp;
+import com.darc.downbit.common.exception.BadRequestException;
 import com.darc.downbit.common.exception.DatabaseException;
 import com.darc.downbit.config.auth.AuthUser;
+import com.darc.downbit.config.http.SmsApi;
 import com.darc.downbit.dao.entity.Favorite;
 import com.darc.downbit.dao.entity.User;
 import com.darc.downbit.dao.mapper.FavoriteMapper;
 import com.darc.downbit.dao.mapper.UserMapper;
 import com.darc.downbit.dao.mapper.UserRoleMapper;
 import com.darc.downbit.service.AuthService;
+import com.darc.downbit.util.CommonUtil;
 import com.darc.downbit.util.JwtUtil;
 import com.google.code.kaptcha.impl.DefaultKaptcha;
 import jakarta.annotation.Resource;
@@ -65,11 +69,19 @@ public class AuthServiceImpl implements AuthService {
     @Resource
     FavoriteMapper favoriteMapper;
     @Resource
+    SmsApi smsApi;
+    @Resource
     PasswordEncoder passwordEncoder;
 
 
     @Value("${downbit.jwt.expiration}")
     private long expiration;
+
+    @Value("${spring.datasource.url}")
+    private String url;
+
+    @Value("${spring.datasource.password}")
+    private String password;
 
     /**
      * 使用用户名密码登录
@@ -78,7 +90,10 @@ public class AuthServiceImpl implements AuthService {
      * @return RestResp<String>
      */
     @Override
-    public RestResp<String> loginByUsername(String captchaKey, String loginKey, LoginDto loginDto) {
+    public String loginByUsername(String captchaKey, LoginDto loginDto) {
+        log.info("进入了service层");
+        log.info("mysql的url:{}", url);
+        log.info("mysql的password:{}", password);
         String username = loginDto.getUsername();
         if (redisTemplate.hasKey("loginUser:" + username)) {
             User user = redisTemplate.opsForValue().get("loginUser:" + username);
@@ -86,39 +101,101 @@ public class AuthServiceImpl implements AuthService {
                 throw new DatabaseException("redis缓存的用户登录信息异常");
             }
             if (request.getHeader("User-Agent").equals(user.getDevice()) && request.getRemoteAddr().equals(user.getIp())) {
-                response.setStatus(HttpStatus.BAD_REQUEST.value());
-                return RestResp.badRequest("用户:" + username + "已经登录");
+                throw new BadRequestException("用户:" + username + "已经登录");
             }
         }
 
         String password = loginDto.getPassword();
         String captcha = loginDto.getCaptcha();
-        RestResp<String> validateResult;
         // 如果loginKey不为空,则说明是注册后的登录,此时不需要验证码
-        if (loginKey != null && Boolean.TRUE.equals(stringRedisTemplate.hasKey(loginKey))) {
-            validateResult = RestResp.ok();
-        } else {
-            validateResult = validateCaptcha(captchaKey, captcha);
-            // 验证码验证后,无论验证是否成功,删除redis中的验证码
-            stringRedisTemplate.delete(captchaKey);
-        }
 
-        if (validateResult.code() != 200) {
-            return validateResult;
-        }
+        validateCaptcha(captchaKey, captcha);
+        // 验证码验证后,无论验证是否成功,删除redis中的验证码
+        stringRedisTemplate.delete(captchaKey);
 
         String newToken = authenticateUser(username, password, normalAuthenticationManager);
 
         if (newToken == null) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return RestResp.unauthorized("登录失败,用户名或密码错误");
+            throw new BadRequestException("登录失败,用户名或密码错误");
         }
-        return RestResp.ok(newToken);
+        return newToken;
     }
 
     @Override
-    public RestResp<String> loginByPhone(PhoneLoginDto loginDto) {
-        return null;
+    @Transactional
+    public PhoneLoginResp loginByPhone(PhoneLoginDto loginDto, String captchaKey) {
+        // 1. 验证手机号格式
+        String phone = loginDto.getPhone();
+        if (!CommonUtil.isPhone(phone)) {
+            throw new BadRequestException("手机号格式不正确");
+        }
+
+        // 2. 验证图形验证码
+        validateCaptcha(captchaKey, loginDto.getCaptcha());
+        // 验证码验证后删除
+        stringRedisTemplate.delete(captchaKey);
+
+        // 3. 验证短信验证码
+        String smsCode = stringRedisTemplate.opsForValue().get("smsCode:" + phone);
+        if (smsCode == null || !smsCode.equals(loginDto.getCode())) {
+            throw new BadRequestException("短信验证码错误或已过期");
+        }
+        // 验证成功后删除短信验证码
+        stringRedisTemplate.delete("smsCode:" + phone);
+
+        // 4. 检查用户是否已注册
+        QueryWrapper<User> queryWrapper = new QueryWrapper<User>().eq("phone", phone);
+        User user = userMapper.selectOne(queryWrapper);
+
+        // 5. 如果用户未注册，先注册
+        if (user == null) {
+            user = new User();
+            // 使用手机号作为用户名
+            user.setUsername(phone);
+            user.setNickname("用户" + phone.substring(phone.length() - 4));
+            user.setPhone(phone);
+            // 生成随机密码
+            String randomPassword = UUID.randomUUID().toString().substring(0, 8);
+            user.setPassword(passwordEncoder.encode(randomPassword));
+            user.setIntro("这是一个简介....");
+            user.setIp(request.getRemoteAddr());
+            user.setDevice(request.getHeader("User-Agent"));
+
+            // 插入用户记录
+            if (userMapper.insert(user) < 1) {
+                throw new DatabaseException("用户注册失败");
+            }
+
+            // 插入用户角色关联
+            if (userRoleMapper.insertByUsernameAndRole(user.getUsername(), RoleType.NORMAL) < 1) {
+                throw new DatabaseException("用户角色关联失败");
+            }
+
+            // 创建默认收藏夹
+            Favorite favorite = new Favorite();
+            favorite.setFavoriteName("默认收藏夹");
+            favorite.setUserId(user.getUserId());
+            if (favoriteMapper.insert(favorite) < 1) {
+                throw new DatabaseException("默认收藏夹添加失败");
+            }
+        }
+
+        // 6. 更新用户登录信息
+        user.setIp(request.getRemoteAddr());
+        user.setDevice(request.getHeader("User-Agent"));
+        userMapper.update(user, new QueryWrapper<User>().eq("user_id", user.getUserId()));
+
+        // 7. 生成新的 UUID 并创建 JWT
+        String newUuid = UUID.randomUUID().toString();
+        user.setUuid(newUuid);
+
+        // 8. 将用户信息保存到 Redis
+        String userKey = "loginUser:" + user.getUsername();
+        redisTemplate.opsForValue().set(userKey, user, expiration, TimeUnit.MILLISECONDS);
+
+        // 9. 生成并返回 JWT
+        String token = JwtUtil.createToken(newUuid, user.getUsername(), expiration);
+        return new PhoneLoginResp(token, user.getUsername());
     }
 
     @Override
@@ -146,10 +223,7 @@ public class AuthServiceImpl implements AuthService {
                 return RestResp.badRequest("用户名:" + username + "已经被注册了");
             }
 
-            RestResp<String> validateResult = validateCaptcha(captchaKey, registerDto.getCaptcha());
-            if (validateResult.code() != 200) {
-                return validateResult;
-            }
+            validateCaptcha(captchaKey, registerDto.getCaptcha());
             // 验证码验证成功后,删除redis中的验证码
             stringRedisTemplate.delete(captchaKey);
 
@@ -157,6 +231,7 @@ public class AuthServiceImpl implements AuthService {
             User user = new User();
             user.setUsername(username);
             user.setNickname(registerDto.getNickname());
+            user.setIntro("这是一个简介....");
             user.setPhone(registerDto.getPhone());
             user.setPassword(passwordEncoder.encode(registerDto.getPassword()));
             user.setIp(request.getRemoteAddr());
@@ -178,10 +253,8 @@ public class AuthServiceImpl implements AuthService {
             if (favoriteMapper.insert(favorite) < 1) {
                 throw new DatabaseException("默认收藏夹添加失败");
             }
-            String loginKey = UUID.randomUUID().toString();
-            stringRedisTemplate.opsForValue().set(loginKey, user.getUsername(), 10, TimeUnit.SECONDS);
             response.setStatus(HttpStatus.OK.value());
-            return RestResp.ok(loginKey);
+            return RestResp.ok("ok");
         } finally {
             redisTemplate.delete(registerLock);
         }
@@ -203,6 +276,22 @@ public class AuthServiceImpl implements AuthService {
         return null;
     }
 
+    @Override
+    public synchronized void sendSmsCode(String phone) {
+        if (phone == null) {
+            throw new BadRequestException("没有手机号");
+        }
+        //验证手机号是否合法
+        if (!CommonUtil.isPhone(phone)) {
+            throw new BadRequestException("手机号不合法");
+        }
+        //生成一个随机的验证码,拼接在params
+        String code = CommonUtil.generateRandomCode(6);
+        String params = "**code**:" + code + ",**minute**:5";
+        smsApi.sendSms(phone, "908e94ccf08b4476ba6c876d13f084ad", "2e65b1bb3d054466b82f0c9d125465e2", params).block();
+        stringRedisTemplate.opsForValue().set("smsCode:" + phone, code, 5, TimeUnit.MINUTES);
+    }
+
 
     /**
      * 验证是否与redis中存储的验证码一致
@@ -211,18 +300,14 @@ public class AuthServiceImpl implements AuthService {
      * @param captcha    验证码
      * @return RestResp<String>
      */
-    private RestResp<String> validateCaptcha(String captchaKey, String captcha) {
+    private void validateCaptcha(String captchaKey, String captcha) {
         if (Boolean.FALSE.equals(stringRedisTemplate.hasKey(captchaKey))) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return RestResp.badRequest("验证码已过期");
+            throw new BadRequestException("验证码已过期");
         }
         String recordedCaptcha = stringRedisTemplate.opsForValue().get(captchaKey);
         if (recordedCaptcha == null || !recordedCaptcha.equals(captcha)) {
-            response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            return RestResp.unauthorized("验证码错误");
+            throw new BadRequestException("验证码错误");
         }
-
-        return RestResp.ok();
     }
 
     /**
@@ -236,8 +321,10 @@ public class AuthServiceImpl implements AuthService {
      * @return String
      */
     private String authenticateUser(String username, String password, AuthenticationManager authenticationManager) {
+        log.info("进入了验证用户方法");
         UsernamePasswordAuthenticationToken authRequest = new UsernamePasswordAuthenticationToken(username, password);
         Authentication authentication = authenticationManager.authenticate(authRequest);
+
         if (authentication.isAuthenticated()) {
             AuthUser authUser = (AuthUser) authentication.getPrincipal();
             User user = authUser.getUser();

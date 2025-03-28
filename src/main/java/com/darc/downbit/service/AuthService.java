@@ -4,6 +4,7 @@ import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
 import com.darc.downbit.common.dto.rep.PhoneLoginDto;
 import com.darc.downbit.common.dto.rep.RegisterDto;
+import com.darc.downbit.common.dto.resp.PhoneLoginResp;
 
 import java.awt.image.BufferedImage;
 
@@ -14,9 +15,9 @@ import java.awt.image.BufferedImage;
  * @description
  */
 public interface AuthService {
-    RestResp<String> loginByUsername(String captchaKey, String loginKey, LoginDto loginDto);
+    String loginByUsername(String captchaKey, LoginDto loginDto);
 
-    RestResp<String> loginByPhone(PhoneLoginDto loginDto);
+    PhoneLoginResp loginByPhone(PhoneLoginDto loginDto, String captchaKey);
 
     BufferedImage getCaptcha(String key);
 
@@ -25,4 +26,6 @@ public interface AuthService {
     RestResp<String> logout();
 
     RestResp<String> refreshToken();
+
+    void sendSmsCode(String phone);
 }

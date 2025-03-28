@@ -1,4 +1,4 @@
-package com.darc.downbit.config.htttp;
+package com.darc.downbit.config.http;
 
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.service.annotation.PostExchange;

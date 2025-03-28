@@ -1,5 +1,6 @@
 package com.darc.downbit.common.dto.rep;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
@@ -29,4 +30,9 @@ public class UploadVideoDto {
     private String coverFileName;
     @NotEmpty(message = "视频标签不能为空")
     private List<String> tags;
+    @NotNull(message = "视频格式不能为空")
+    @NotBlank(message = "视频格式不能为空格")
+    private String format;
+    @Min(value = 0, message = "视频时长不能小于0")
+    private Integer duration;
 }

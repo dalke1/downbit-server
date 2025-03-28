@@ -1,7 +1,10 @@
 package com.darc.downbit.util;
 
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.darc.downbit.common.cache.VideoCache;
 import com.darc.downbit.dao.entity.Comment;
+import com.darc.downbit.dao.entity.Tag;
+import com.darc.downbit.dao.mapper.TagMapper;
 import com.darc.downbit.dao.mapper.VideoMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
@@ -12,9 +15,10 @@ import org.springframework.data.redis.core.RedisCallback;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -33,6 +37,8 @@ public class HotRankUtil {
     @Resource
     private VideoMapper videoMapper;
     @Resource
+    private TagMapper tagMapper;
+    @Resource
     private MongoTemplate mongoTemplate;
 
     // 半衰期（小时）
@@ -48,6 +54,21 @@ public class HotRankUtil {
             return;
         }
 
+        String currentGlobalCopyId = UUID.randomUUID().toString();
+        String globalHotKey = "hotVideos:全站:" + currentGlobalCopyId;
+
+
+        List<Tag> tags = tagMapper.selectList(new QueryWrapper<>());
+        Map<String, String> copyIdMap = new HashMap<>();
+        Map<String, String> tagHotKeyMap = new HashMap<>();
+        tags.forEach(tag -> {
+            String tagCopyId = UUID.randomUUID().toString();
+            String tagName = tag.getTagName();
+            copyIdMap.put(tagName, tagCopyId);
+            tagHotKeyMap.put(tagName, "hotVideos:标签:" + tagName + ":" + tagCopyId);
+        });
+
+
         redisTemplate.executePipelined((RedisCallback<Object>) connection -> {
             for (String videoId : videoIdList) {
                 // 获取视频信息
@@ -62,7 +83,7 @@ public class HotRankUtil {
                 long currentTime = System.currentTimeMillis();
                 double hoursPassed;
                 if (activeTime == null) {
-                    double uploadTime = (double) videoCache.getUploadTime().getTime();
+                    long uploadTime = videoMapper.selectUploadTimeAndDurationByVideoId(Integer.parseInt(videoId)).getUploadTime().getTime();
                     hoursPassed = (currentTime - uploadTime) / 1000.0 / 3600.0;
                 } else {
                     hoursPassed = (currentTime - activeTime) / 1000.0 / 3600.0;
@@ -75,18 +96,26 @@ public class HotRankUtil {
                         (favoriteCount == null ? 0 : favoriteCount) * FAVORITE_WEIGHT +
                         (commentCount == null ? 0 : commentCount) * COMMENT_WEIGHT) * decayFactor;
 
+                BigDecimal hotScoreScaled = new BigDecimal(hotScore).setScale(2, RoundingMode.HALF_UP);
+
                 // 打印所有的数值
                 log.info("videoId: {}, watchCount: {}, likeCount: {}, favoriteCount: {}, commentCount: {}, activeTime: {}, hoursPassed: {}, decayFactor: {}, hotScore: {}",
                         videoId, watchCount, likeCount, favoriteCount, commentCount, activeTime, hoursPassed, decayFactor, hotScore);
 
                 // 批量添加到Redis
-                redisTemplate.opsForZSet().add("hotVideos:全站", videoId, hotScore);
+                redisTemplate.opsForZSet().add(globalHotKey, videoId, hotScoreScaled.doubleValue());
 
                 // 按标签添加
                 for (String tag : videoCache.getTags()) {
-                    redisTemplate.opsForZSet().add("hotVideos:" + tag, videoId, hotScore);
+                    redisTemplate.opsForZSet().add(tagHotKeyMap.get(tag), videoId, hotScoreScaled.doubleValue());
                 }
             }
+
+            redisTemplate.opsForHash().put("currentCopyIdMap", "全站", currentGlobalCopyId);
+            redisTemplate.expire(globalHotKey, 3, TimeUnit.HOURS);
+            tagHotKeyMap.forEach((key, value) -> redisTemplate.expire(value, 3, TimeUnit.HOURS));
+            copyIdMap.forEach((key, value) -> redisTemplate.opsForHash().put("currentCopyIdMap", key, value));
+
             return null;
         });
     }
@@ -112,7 +141,7 @@ public class HotRankUtil {
                 // 计算时间衰减
                 double hoursPassed;
                 if (activeTime == null) {
-                    long uploadTime = redisUtil.getVideoCacheFromRedis(String.valueOf(recentVideosId.getFirst())).getUploadTime().getTime();
+                    long uploadTime = videoMapper.selectUploadTimeAndDurationByVideoId(recentVideosId.getFirst()).getUploadTime().getTime();
                     hoursPassed = (currentTime - uploadTime) / 1000.0 / 3600.0;
                 } else {
                     hoursPassed = (currentTime - activeTime) / 1000.0 / 3600.0;
@@ -132,10 +161,11 @@ public class HotRankUtil {
         });
     }
 
-    public void calculateHotComment(List<String> videoIdList) {
+    public void calculateHotCommentScore(List<String> videoIdList) {
         if (videoIdList == null || videoIdList.isEmpty()) {
             return;
         }
+
         for (String videoId : videoIdList) {
             Query queryParent = new Query(Criteria
                     .where("parentId").exists(false)
@@ -143,10 +173,13 @@ public class HotRankUtil {
                     .and("videoId").is(videoId)
             );
             List<Comment> parentCommentList = mongoTemplate.find(queryParent, Comment.class);
+            String commentCopyId = UUID.randomUUID().toString();
             if (parentCommentList.isEmpty()) {
+                redisTemplate.opsForHash().put("currentCommentCopyIdMap", videoId, commentCopyId);
                 continue;
             }
-            Map<String, Double> hotCommentsMap = parentCommentList.stream()
+            String hotCommentKey = "hotComments:" + videoId + ":copyId:" + commentCopyId;
+            Map<String, Double> hotCommentsScoreMap = parentCommentList.stream()
                     .collect(Collectors.toMap(
                             Comment::getId,
                             comment -> {
@@ -154,44 +187,37 @@ public class HotRankUtil {
                                 return comment.getLikeCount() * LIKE_WEIGHT + mongoTemplate.count(queryReplies, Comment.class);
                             }
                     ));
-            String hotCommentKey = "hotComments:" + videoId;
             redisTemplate.executePipelined((RedisCallback<String>) connection -> {
-                hotCommentsMap.forEach((key, value) -> redisTemplate.opsForZSet().add(hotCommentKey, key, value));
+                hotCommentsScoreMap.forEach((key, value) -> redisTemplate.opsForZSet().add(hotCommentKey, key, value));
+                redisTemplate.opsForHash().put("currentCommentCopyIdMap", videoId, commentCopyId);
                 return null;
             });
+            redisTemplate.expire(hotCommentKey, 2, TimeUnit.HOURS);
         }
+
+
     }
 
-    public List<String> getHotVideos(int limit) {
-        Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotVideos:全站", 0, limit - 1);
-        if (objects != null && !objects.isEmpty()) {
-            return objects.stream().map(String::valueOf).collect(Collectors.toList());
-        }
-        return List.of();
-    }
-
-    public List<String> getHotVideosByTag(int limit, String tag) {
-        Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotVideos:" + tag, 0, limit - 1);
-        if (objects != null && !objects.isEmpty()) {
-            return objects.stream().map(String::valueOf).collect(Collectors.toList());
-        }
-        return List.of();
+    public List<String> getHotVideos(int start, int end, String hotVideoKey) {
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange(hotVideoKey, start, end);
+        return processResult(objects);
     }
 
     public List<String> getHotUploader(int limit) {
         Set<Object> objects = redisTemplate.opsForZSet().reverseRange("hotUploader", 0, limit - 1);
+        return processResult(objects);
+    }
+
+    public List<String> getHotComments(int start, int end, String hotCommentKey) {
+        Set<Object> objects = redisTemplate.opsForZSet().reverseRange(hotCommentKey, start, end);
+        return processResult(objects);
+    }
+
+    public List<String> processResult(Set<Object> objects) {
         if (objects != null && !objects.isEmpty()) {
             return objects.stream().map(String::valueOf).collect(Collectors.toList());
         }
         return List.of();
     }
 
-    public List<String> getHotCommentsByVideoId(int start, int end, String videoId) {
-        String hotCommentKey = "hotComments:" + videoId;
-        Set<Object> objects = redisTemplate.opsForZSet().reverseRange(hotCommentKey, start, end);
-        if (objects != null && !objects.isEmpty()) {
-            return objects.stream().map(String::valueOf).collect(Collectors.toList());
-        }
-        return List.of();
-    }
 }

@@ -11,6 +11,7 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * @author darc
@@ -47,6 +48,9 @@ public class User implements Serializable {
     @JsonProperty("device")
     private String device;
 
+    @JsonProperty("intro")
+    private String intro;
+
     @JsonProperty("uuid")
     @TableField(exist = false)
     private String uuid;
@@ -66,59 +70,34 @@ public class User implements Serializable {
     private static final long serialVersionUID = 1L;
 
     @Override
-    public boolean equals(Object that) {
-        if (this == that) {
-            return true;
-        }
-        if (that == null) {
-            return false;
-        }
-        if (getClass() != that.getClass()) {
-            return false;
-        }
-        User other = (User) that;
-        return (this.getUserId() == null ? other.getUserId() == null : this.getUserId().equals(other.getUserId()))
-                && (this.getUsername() == null ? other.getUsername() == null : this.getUsername().equals(other.getUsername()))
-                && (this.getPassword() == null ? other.getPassword() == null : this.getPassword().equals(other.getPassword()))
-                && (this.getNickname() == null ? other.getNickname() == null : this.getNickname().equals(other.getNickname()))
-                && (this.getMail() == null ? other.getMail() == null : this.getMail().equals(other.getMail()))
-                && (this.getPhone() == null ? other.getPhone() == null : this.getPhone().equals(other.getPhone()))
-                && (this.getIp() == null ? other.getIp() == null : this.getIp().equals(other.getIp()))
-                && (this.getDevice() == null ? other.getDevice() == null : this.getDevice().equals(other.getDevice()));
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        User user = (User) o;
+        return Objects.equals(userId, user.userId) && Objects.equals(username, user.username) && Objects.equals(password, user.password) && Objects.equals(nickname, user.nickname) && Objects.equals(mail, user.mail) && Objects.equals(avatarId, user.avatarId) && Objects.equals(phone, user.phone) && Objects.equals(ip, user.ip) && Objects.equals(device, user.device) && Objects.equals(intro, user.intro) && Objects.equals(uuid, user.uuid) && Objects.equals(createdTime, user.createdTime) && Objects.equals(updatedTime, user.updatedTime) && Objects.equals(role, user.role);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((getUserId() == null) ? 0 : getUserId().hashCode());
-        result = prime * result + ((getUsername() == null) ? 0 : getUsername().hashCode());
-        result = prime * result + ((getPassword() == null) ? 0 : getPassword().hashCode());
-        result = prime * result + ((getNickname() == null) ? 0 : getNickname().hashCode());
-        result = prime * result + ((getMail() == null) ? 0 : getMail().hashCode());
-        result = prime * result + ((getPhone() == null) ? 0 : getPhone().hashCode());
-        result = prime * result + ((getIp() == null) ? 0 : getIp().hashCode());
-        result = prime * result + ((getDevice() == null) ? 0 : getDevice().hashCode());
-        return result;
+        return Objects.hash(userId, username, password, nickname, mail, avatarId, phone, ip, device, intro, uuid, createdTime, updatedTime, role);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getSimpleName());
-        sb.append(" [");
-        sb.append("Hash = ").append(hashCode());
-        sb.append(", userId=").append(userId);
-        sb.append(", username=").append(username);
-        sb.append(", password=").append(password);
-        sb.append(", nickname=").append(nickname);
-        sb.append(", mail=").append(mail);
-        sb.append(", phone=").append(phone);
-        sb.append(", ip=").append(ip);
-        sb.append(", device=").append(device);
-        sb.append(",role=").append(role);
-        sb.append(", serialVersionUID=").append(serialVersionUID);
-        sb.append("]");
-        return sb.toString();
+        return "User{" +
+                "userId=" + userId +
+                ", username='" + username + '\'' +
+                ", password='" + password + '\'' +
+                ", nickname='" + nickname + '\'' +
+                ", mail='" + mail + '\'' +
+                ", avatarId=" + avatarId +
+                ", phone='" + phone + '\'' +
+                ", ip='" + ip + '\'' +
+                ", device='" + device + '\'' +
+                ", intro='" + intro + '\'' +
+                ", uuid='" + uuid + '\'' +
+                ", createdTime=" + createdTime +
+                ", updatedTime=" + updatedTime +
+                ", role='" + role + '\'' +
+                '}';
     }
 }

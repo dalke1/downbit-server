@@ -1,5 +1,6 @@
-package com.darc.downbit.config.htttp;
+package com.darc.downbit.config.http;
 
+import lombok.Data;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringBootConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -13,8 +14,10 @@ import org.springframework.web.service.invoker.HttpServiceProxyFactory;
  * @createDate 2024/11/17-20:21:28
  * @description
  */
+@Data
 @SpringBootConfiguration
 public class HttpConfig {
+
     @Bean
     HttpServiceProxyFactory httpServiceProxyFactory(@Value("${downbit.aliyun.auth}") String auth) {
         WebClient webClient = WebClient.builder()
@@ -31,11 +34,6 @@ public class HttpConfig {
      *
      * @return WeatherInterface
      */
-    @Bean
-    WeatherApi weatherApi(HttpServiceProxyFactory httpServiceProxyFactory) {
-        return httpServiceProxyFactory.createClient(WeatherApi.class);
-    }
-
     @Bean
     SmsApi smsApi(HttpServiceProxyFactory httpServiceProxyFactory) {
         return httpServiceProxyFactory.createClient(SmsApi.class);

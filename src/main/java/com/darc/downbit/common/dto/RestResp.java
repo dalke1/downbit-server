@@ -50,4 +50,8 @@ public record RestResp<T>(Integer code, String message, T result) {
     public static <T> RestResp<T> serviceUnavailable(T result) {
         return new RestResp<>(StatusCodeEnum.SERVICE_UNAVAILABLE.getCode(), StatusCodeEnum.SERVICE_UNAVAILABLE.getMessage(), result);
     }
+
+    public static <T> RestResp<T> refreshPage(T result) {
+        return new RestResp<>(StatusCodeEnum.REFRESH_PAGE.getCode(), StatusCodeEnum.REFRESH_PAGE.getMessage(), result);
+    }
 }

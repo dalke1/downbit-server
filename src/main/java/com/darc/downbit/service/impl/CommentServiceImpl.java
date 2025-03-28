@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.darc.downbit.common.cache.VideoCache;
 import com.darc.downbit.common.dto.rep.CommentReqDto;
 import com.darc.downbit.common.dto.rep.ReplyReqDto;
+import com.darc.downbit.common.dto.resp.CommentPage;
 import com.darc.downbit.common.dto.resp.CommentRespDto;
 import com.darc.downbit.common.exception.BadRequestException;
+import com.darc.downbit.common.exception.RefreshPage;
 import com.darc.downbit.config.auth.AuthConfig;
 import com.darc.downbit.config.auth.AuthUser;
 import com.darc.downbit.dao.entity.Comment;
@@ -65,29 +67,57 @@ public class CommentServiceImpl implements CommentService {
 
 
     @Override
-    public List<CommentRespDto> getHotComments(String videoId, Integer startIndex) {
+    public CommentPage getHotComments(String videoId, Integer startIndex, String commentCopyId) {
         log.info(String.valueOf(startIndex));
-        List<String> hotComments = hotRankUtil.getHotCommentsByVideoId(startIndex, startIndex + COMMENT_SIZE - 1, videoId);
-        if (hotComments == null || hotComments.isEmpty()) {
-            return null;
+        String currentCommentCopyId = (String) redisTemplate.opsForHash().get("currentCommentCopyIdMap", videoId);
+        String currentHotCommentKey = "hotComments:" + videoId + ":copyId:" + currentCommentCopyId;
+        String previousHotCommentKey = "hotComments:" + videoId + ":copyId:" + commentCopyId;
+        List<String> hotCommentIdList;
+        boolean isFirstPage = true;
+        if (commentCopyId == null) {
+            hotCommentIdList = hotRankUtil.getHotComments(0, COMMENT_SIZE - 1, currentHotCommentKey);
+            if (hotCommentIdList.isEmpty()) {
+                return null;
+            }
+        } else if (startIndex == null) {
+            throw new BadRequestException("分页获取热门评论的索引为空");
+        } else {
+            if (!redisTemplate.hasKey(previousHotCommentKey)) {
+                throw new RefreshPage("用户传递的评论copyId已经过期,请刷新页面");
+            }
+            hotCommentIdList = hotRankUtil.getHotComments(startIndex, startIndex + COMMENT_SIZE - 1, previousHotCommentKey);
+            if (hotCommentIdList.isEmpty()) {
+                return null;
+            }
+            isFirstPage = false;
         }
-        log.info(hotComments.toString());
-        List<Comment> comments = hotComments.stream()
-                .map(commentId -> redisUtil.getCommentFromRedis(commentId)).toList();
-        return generateCommentsResp(comments, true);
+        List<Comment> commentList = hotCommentIdList.stream()
+                .map(commentId -> redisUtil.getCommentFromRedis(commentId))
+                .toList();
+        return isFirstPage ? new CommentPage(generateCommentsResp(commentList, true), currentCommentCopyId)
+                : new CommentPage(generateCommentsResp(commentList, true), commentCopyId);
     }
 
     @Override
-    public List<CommentRespDto> getNewComments(String videoId, Integer startIndex) {
+    public List<CommentRespDto> getNewComments(String videoId, String commentId) {
         // 只查询父评论
         Query query = new Query(Criteria.where("videoId").is(videoId)
                 .and("parentId").exists(false).and("replyTo").exists(false));
+
+        // 如果 commentId 不为空，则查询小于 commentId 的评论
+        if (commentId != null) {
+            Comment lastComment = mongoTemplate.findOne(Query.query(Criteria.where("id").is(commentId)), Comment.class);
+            if (lastComment == null) {
+                throw new BadRequestException("评论id不存在");
+            }
+            query.addCriteria(Criteria.where("commentTime").lt(lastComment.getCommentTime()));
+        }
 
         // 设置排序（按评论时间倒序）
         query.with(Sort.by(Sort.Direction.DESC, "commentTime"));
 
         // 设置分页
-        query.skip(startIndex).limit(COMMENT_SIZE);
+        query.limit(COMMENT_SIZE);
 
         // 执行查询
         List<Comment> comments = mongoTemplate.find(query, Comment.class);
@@ -98,10 +128,25 @@ public class CommentServiceImpl implements CommentService {
     }
 
     @Override
-    public List<CommentRespDto> getReplies(String commentId, Integer startIndex) {
-        Query query = Query.query(Criteria.where("parentId").is(commentId));
+    public List<CommentRespDto> getReplies(String parentId, String commentId) {
+        Query query = Query.query(Criteria.where("parentId").is(parentId));
+
+        // 如果 commentId 不为空，则查询小于 commentId 的评论
+        if (commentId != null) {
+            Comment lastComment = mongoTemplate.findOne(Query.query(Criteria.where("id").is(commentId)), Comment.class);
+            if (lastComment == null) {
+                throw new BadRequestException("评论id不存在");
+            }
+            query.addCriteria(Criteria.where("commentTime").gt(lastComment.getCommentTime()));
+        }
+
+        // 设置排序（按评论时间升序）
         query.with(Sort.by(Sort.Direction.ASC, "commentTime"));
-        query.skip(startIndex).limit(COMMENT_SIZE);
+
+        // 设置分页
+        query.limit(COMMENT_SIZE);
+
+        // 执行查询
         List<Comment> replies = mongoTemplate.find(query, Comment.class);
         if (replies.isEmpty()) {
             return null;
@@ -124,7 +169,14 @@ public class CommentServiceImpl implements CommentService {
         newComment.setUsername(authUser.getUser().getUsername());
         newComment.setCommentTime(System.currentTimeMillis());
         mongoTemplate.insert(newComment);
-        redisTemplate.opsForZSet().add("hotComments:" + videoId, newComment.getId(), 0);
+        String commentCopyId = (String) redisTemplate.opsForHash().get("currentCommentCopyIdMap", videoId);
+        String currentHotCommentKey = "hotComments:" + videoId + ":copyId:" + commentCopyId;
+        if (!redisTemplate.hasKey(currentHotCommentKey)) {
+            redisTemplate.opsForZSet().add(currentHotCommentKey, newComment.getId(), -System.currentTimeMillis());
+            redisTemplate.expire(currentHotCommentKey, 4, TimeUnit.HOURS);
+        } else {
+            redisTemplate.opsForZSet().add(currentHotCommentKey, newComment.getId(), -System.currentTimeMillis());
+        }
         redisUtil.getBloomFilter("commentBloomFilter", 1000000, 0.03).add(newComment.getId());
 
         redisTemplate.opsForHash().increment("commentCount", videoId, 1);

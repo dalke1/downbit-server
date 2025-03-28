@@ -3,6 +3,7 @@ package com.darc.downbit.controller.front;
 import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.CommentReqDto;
 import com.darc.downbit.common.dto.rep.ReplyReqDto;
+import com.darc.downbit.common.dto.resp.CommentPage;
 import com.darc.downbit.common.dto.resp.CommentRespDto;
 import com.darc.downbit.service.CommentService;
 import jakarta.annotation.Resource;
@@ -25,8 +26,10 @@ public class CommentController {
     private CommentService commentService;
 
     @GetMapping("/hot/{video_id}")
-    public Object getHotComments(@PathVariable("video_id") String videoId, @RequestParam(defaultValue = "0") Integer startIndex) {
-        List<CommentRespDto> hotComments = commentService.getHotComments(videoId, startIndex);
+    public Object getHotComments(@PathVariable("video_id") String videoId,
+                                 @RequestParam(value = "startIndex", required = false) Integer startIndex,
+                                 @RequestParam(value = "commentCopyId", required = false) String commentCopyId) {
+        CommentPage hotComments = commentService.getHotComments(videoId, startIndex, commentCopyId);
         if (hotComments != null) {
             return RestResp.ok(hotComments);
         }
@@ -34,17 +37,17 @@ public class CommentController {
     }
 
     @GetMapping("/new/{video_id}")
-    public Object getNewComments(@PathVariable("video_id") String videoId, @RequestParam(defaultValue = "0") Integer startIndex) {
-        List<CommentRespDto> newComments = commentService.getNewComments(videoId, startIndex);
+    public Object getNewComments(@PathVariable("video_id") String videoId, @RequestParam(value = "commentId", required = false) String commentId) {
+        List<CommentRespDto> newComments = commentService.getNewComments(videoId, commentId);
         if (newComments != null) {
             return RestResp.ok(newComments);
         }
         return RestResp.ok();
     }
 
-    @GetMapping("/replies/{parent_id}/{start_index}")
-    public Object getReplies(@PathVariable("parent_id") String parentId, @PathVariable("start_index") String startIndex) {
-        List<CommentRespDto> replies = commentService.getReplies(parentId, Integer.parseInt(startIndex));
+    @GetMapping("/replies/{parent_id}")
+    public Object getReplies(@PathVariable("parent_id") String parentId, @RequestParam(value = "commentId", required = false) String commentId) {
+        List<CommentRespDto> replies = commentService.getReplies(parentId, commentId);
         if (replies != null) {
             return RestResp.ok(replies);
         }

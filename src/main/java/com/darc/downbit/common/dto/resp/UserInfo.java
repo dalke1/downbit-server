@@ -7,13 +7,15 @@ import lombok.NoArgsConstructor;
 /**
  * @author darc
  * @version 0.1
- * @createDate 2025/3/6-01:25:52
+ * @createDate 2025/3/28-12:26:08
  * @description
  */
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class TagRespDto {
-    private String code;
-    private String name;
+public class UserInfo {
+    private String username;
+    private String nickname;
+    private String intro;
+    private String avatar;
 }

@@ -1,7 +1,6 @@
-package com.darc.downbit.config.auth.userdetailservice;
+package com.darc.downbit.config.auth;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
-import com.darc.downbit.config.auth.AuthUser;
 import com.darc.downbit.dao.entity.User;
 import com.darc.downbit.dao.mapper.UserMapper;
 import jakarta.annotation.Resource;

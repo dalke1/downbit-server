@@ -1,6 +1,8 @@
 package com.darc.downbit.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.darc.downbit.common.dto.rep.SearchVideoReq;
+import com.darc.downbit.common.dto.rep.UpdateVideoDto;
 import com.darc.downbit.common.dto.rep.UploadVideoDto;
 import com.darc.downbit.common.dto.rep.VideoReqDto;
 import com.darc.downbit.common.dto.resp.*;
@@ -41,4 +43,24 @@ public interface VideoService extends IService<Video> {
     void prepareRecommend();
 
     void changeRecommendModel(List<String> tags, String username, Integer score);
+
+    List<TagRespDto> getInterestTags();
+
+    List<VideoRespDto> getNewVideos(String videoId);
+
+    VideoPage getHotVideos(String copyId, Integer index);
+
+    VideoPage getHotVideosByTag(String tag, String copyId, Integer index);
+
+    VideoRespDto getVideoInfo(String videoId);
+
+    List<VideoRespDto> getRelatedVideoList(String videoId);
+
+    UpdateInfo getVideoForUpdate(String videoId);
+
+    void updateVideo(UpdateVideoDto updateVideoDto);
+
+    void deleteVideo(String videoId);
+
+    SearchVideoResp searchVideos(SearchVideoReq dto);
 }

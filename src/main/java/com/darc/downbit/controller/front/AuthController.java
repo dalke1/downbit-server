@@ -2,11 +2,14 @@ package com.darc.downbit.controller.front;
 
 import com.darc.downbit.common.dto.RestResp;
 import com.darc.downbit.common.dto.rep.LoginDto;
+import com.darc.downbit.common.dto.rep.PhoneLoginDto;
 import com.darc.downbit.common.dto.rep.RegisterDto;
+import com.darc.downbit.common.exception.BadRequestException;
 import com.darc.downbit.service.AuthService;
 import jakarta.annotation.Resource;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -25,24 +28,19 @@ import java.util.UUID;
  */
 @RestController
 @RequestMapping("/api/auth")
+@Slf4j
 public class AuthController {
     @Resource
     private AuthService authService;
 
     @PostMapping("/username_login")
-    public Object usernameLogin(@RequestBody @Validated LoginDto loginDto, HttpServletRequest request, HttpServletResponse response) {
+    public Object usernameLogin(@RequestBody @Validated LoginDto loginDto, HttpServletRequest request) {
         String captchaKey = request.getHeader("captcha-key");
-        String loginKey = request.getHeader("login-key");
-        if (captchaKey == null && loginKey == null) {
-            response.setStatus(HttpStatus.BAD_REQUEST.value());
-            return RestResp.badRequest("验证码key不能为空");
+        log.info("进入了controller层");
+        if (captchaKey == null) {
+            throw new BadRequestException("验证码key不能为空");
         }
-        return authService.loginByUsername(captchaKey, loginKey, loginDto);
-    }
-
-    @PostMapping("/phone_login")
-    public Object phoneLogin() {
-        return null;
+        return RestResp.ok(authService.loginByUsername(captchaKey, loginDto));
     }
 
     @GetMapping("/captcha")
@@ -80,5 +78,20 @@ public class AuthController {
     @PostMapping("/refresh_token")
     public Object refreshToken() {
         return null;
+    }
+
+    @GetMapping("/smsCode")
+    public Object smsCode(@RequestParam("phone") String phone) {
+        authService.sendSmsCode(phone);
+        return RestResp.ok();
+    }
+
+    @PostMapping("/phone_login")
+    public Object phoneLogin(@RequestBody @Validated PhoneLoginDto phoneLoginDto, HttpServletRequest request) {
+        String captchaKey = request.getHeader("captcha-key");
+        if (captchaKey == null) {
+            throw new BadRequestException("验证码key不能为空");
+        }
+        return RestResp.ok(authService.loginByPhone(phoneLoginDto, captchaKey));
     }
 }

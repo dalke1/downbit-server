@@ -6,7 +6,6 @@ import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -26,7 +25,9 @@ public class VideoCache {
     private String videoTitle;
     private String fileName;
     private String coverFileName;
+    private String videoFormat;
     private String videoDescription;
     private List<String> tags;
-    private Date uploadTime;
+    private Long uploadTime;
+    private String duration;
 }

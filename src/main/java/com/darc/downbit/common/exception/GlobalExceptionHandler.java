@@ -27,6 +27,13 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @Slf4j
 public class GlobalExceptionHandler {
 
+    @ExceptionHandler(RefreshPage.class)
+    @ResponseStatus(HttpStatus.OK)
+    public RestResp<String> handleRefreshPageException(RefreshPage e) {
+        log.info(e.getMessage());
+        return RestResp.refreshPage(e.getMessage());
+    }
+
     @ExceptionHandler(NoSuchVideoException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public RestResp<String> handleNoSuchVideoException(NoSuchVideoException e) {

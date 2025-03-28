@@ -10,4 +10,6 @@ import com.darc.downbit.common.exception.NoMoreRecommendException;
  */
 public interface RecommendService {
     void getRecommendVideos(String username, Integer userId) throws NoMoreRecommendException;
+
+    void getRelatedVideos(String videoId) throws NoMoreRecommendException;
 }

@@ -44,4 +44,45 @@ public class CommonUtil {
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
         return sdf.format(new Date(timestamp));
     }
+
+    public static String formatDuration(int duration) {
+        int hours = duration / 3600;
+        int minutes = (duration % 3600) / 60;
+        int seconds = duration % 60;
+
+        if (hours > 0) {
+            return String.format("%02d:%02d:%02d", hours, minutes, seconds);
+        } else if (minutes > 0) {
+            return String.format("%02d:%02d", minutes, seconds);
+        } else {
+            return String.format("0:%02d", seconds);
+        }
+    }
+
+    public static String formatNumberToString(long number) {
+        if (number < 1000) {
+            return String.valueOf(number);
+        } else if (number < 10000) {
+            return number / 1000 + "k";
+        } else if (number < 100000) {
+            return number / 10000 + "w";
+        } else if (number < 100000000) {
+            return number / 100000 + "m";
+        } else {
+            return number / 100000000 + "b";
+        }
+    }
+
+    public static boolean isPhone(String phone) {
+        return phone.matches("^1[3456789]\\d{9}$");
+    }
+
+    public static String generateRandomCode(int length) {
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            code.append((int) (Math.random() * 10));
+        }
+        return code.toString();
+    }
+
 }

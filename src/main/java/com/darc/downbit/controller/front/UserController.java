@@ -35,4 +35,28 @@ public class UserController {
     public Object getAvatar() {
         return RestResp.ok(userService.getAvatar());
     }
+
+    @GetMapping("/get_user_info")
+    public Object getUserInfo() {
+        return RestResp.ok(userService.getUserInfo());
+    }
+
+    @GetMapping("/get_upload_avatar_url")
+    public Object getUploadAvatarUrl(@RequestParam("fileName") String fileName) {
+        return RestResp.ok(userService.getUploadAvatarUrl(fileName));
+    }
+
+    @PostMapping("/update_user_info")
+    public Object updateUserInfo(@RequestParam("nickname") String nickname,
+                                 @RequestParam("intro") String intro,
+                                 @RequestParam(value = "fileName", required = false) String fileName) {
+        userService.updateUserInfo(nickname, intro, fileName);
+        return RestResp.ok();
+    }
+
+    @GetMapping("/getTotalLikeCount")
+    public Object getTotalLikeCount(@RequestParam("username") String username) {
+        String likeTotal = userService.likeTotal(username);
+        return RestResp.ok(likeTotal);
+    }
 }

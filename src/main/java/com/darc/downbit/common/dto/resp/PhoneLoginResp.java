@@ -7,13 +7,13 @@ import lombok.NoArgsConstructor;
 /**
  * @author darc
  * @version 0.1
- * @createDate 2025/3/6-01:25:52
+ * @createDate 2025/3/28-21:28:16
  * @description
  */
-@Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class TagRespDto {
-    private String code;
-    private String name;
+@Data
+public class PhoneLoginResp {
+    private String token;
+    private String username;
 }

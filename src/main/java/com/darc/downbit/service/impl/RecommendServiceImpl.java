@@ -1,10 +1,12 @@
 package com.darc.downbit.service.impl;
 
+import com.darc.downbit.common.cache.VideoCache;
 import com.darc.downbit.common.dto.rep.RecommendReqDto;
+import com.darc.downbit.common.dto.rep.RelatedReqDto;
 import com.darc.downbit.common.dto.resp.RecommendRespDto;
 import com.darc.downbit.common.exception.JsonException;
 import com.darc.downbit.common.exception.NoMoreRecommendException;
-import com.darc.downbit.config.htttp.RecommendApi;
+import com.darc.downbit.config.http.RecommendApi;
 import com.darc.downbit.dao.mapper.FavoriteVideoMapper;
 import com.darc.downbit.dao.mapper.VideoMapper;
 import com.darc.downbit.service.RecommendService;
@@ -15,6 +17,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.redisson.api.RBloomFilter;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -50,6 +53,11 @@ public class RecommendServiceImpl implements RecommendService {
     @Resource
     private RecommendApi recommendApi;
 
+    @Value("${downbit.env}")
+    private String env;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Async("asyncTaskExecutor")
     @Override
     public void getRecommendVideos(String username, Integer userId) throws NoMoreRecommendException {
@@ -72,41 +80,40 @@ public class RecommendServiceImpl implements RecommendService {
         // 获取前3个标签的热门视频,并取并集
         Set<String> videoIdSet = new HashSet<>();
         for (String tag : topTags) {
-            List<String> hotTagVideos = hotRankUtil.getHotVideosByTag(-1, tag);
+            String currentTagCopyId = (String) redisTemplate.opsForHash().get("currentCopyIdMap", tag);
+            String currentTagHotKey = "hotVideos:" + tag + ":" + currentTagCopyId;
+            List<String> hotTagVideos = hotRankUtil.getHotVideos(0, -1, currentTagHotKey);
             videoIdSet.addAll(hotTagVideos);
         }
 
         // 获取布隆过滤器
         RBloomFilter<Object> bloomFilter = redisUtil.getBloomFilter("bloomFilter:" + username, 10000, 0.01);
-        // 获取用户的七天内历史观看记录
-        Set<String> historyVideos = redisTemplate.opsForZSet().reverseRangeByScore("history:" + username,
-                System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7), System.currentTimeMillis());
-
+        // 如果已经存在推荐列表,则从推荐列表中过滤掉已经存在的视频
         if (redisTemplate.hasKey(recommendKey)) {
-            Long size = redisTemplate.opsForZSet().size(recommendKey);
-            if (size != null && size <= 1) {
-                Set<String> storedRecommend = redisTemplate.opsForZSet().reverseRangeByScore(recommendKey, 0, -1);
-                if (storedRecommend != null) {
-                    storedRecommend.forEach(bloomFilter::add);
-                    videoIdSet = videoIdSet.stream().filter(videoId -> !bloomFilter.contains(videoId)).collect(Collectors.toSet());
-                }
+            Set<String> storedRecommend = redisTemplate.opsForZSet().reverseRangeByScore(recommendKey, 0, -1);
+            if (storedRecommend != null && !storedRecommend.isEmpty()) {
+                storedRecommend.forEach(bloomFilter::add);
             }
         }
 
-        // 过滤掉用户已经观看过的视频,并取前20个
+        // 获取用户的七天内历史观看记录
+        Set<String> historyVideos = redisTemplate.opsForZSet().reverseRangeByScore("history:" + username,
+                System.currentTimeMillis() - TimeUnit.DAYS.toMillis(7), System.currentTimeMillis());
+        // 过滤掉用户已经观看过的视频
         if (historyVideos != null && !historyVideos.isEmpty()) {
             historyVideos.forEach(bloomFilter::add);
-            videoIdSet = videoIdSet.stream()
-                    .filter(videoId -> !bloomFilter.contains(videoId))
-                    .limit(20)
-                    .collect(Collectors.toSet());
-        } else {
-            videoIdSet = videoIdSet.stream().limit(20).collect(Collectors.toSet());
         }
+        // 过滤推荐列表里的视频和用户七天内看过的视频,并取前20个
+        videoIdSet = videoIdSet.stream()
+                .filter(videoId -> !bloomFilter.contains(videoId))
+                .limit(20)
+                .collect(Collectors.toSet());
 
         // 如果不足20个,则从全站热门视频补充至20个
         if (videoIdSet.size() < 20) {
-            List<String> globalHotVideos = hotRankUtil.getHotVideos(-1);
+            String currentGlobalCopyId = (String) redisTemplate.opsForHash().get("currentCopyIdMap", "全站");
+            String currentGlobalHotKey = "hotVideos:全站:" + currentGlobalCopyId;
+            List<String> globalHotVideos = hotRankUtil.getHotVideos(0, -1, currentGlobalHotKey);
 
             videoIdSet.addAll(globalHotVideos.stream()
                     .filter(videoId -> !bloomFilter.contains(videoId))
@@ -164,7 +171,6 @@ public class RecommendServiceImpl implements RecommendService {
             recommendReqDto.setFavoriteVideos(favoriteVideos);
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
         RecommendRespDto recommendRespDto;
         stopWatch1.stop();
         log.info("处理视频时间:{}ms", stopWatch1.getTotalTimeMillis());
@@ -172,7 +178,12 @@ public class RecommendServiceImpl implements RecommendService {
         stopWatch2.start();
         try {
             String json = objectMapper.writeValueAsString(recommendReqDto);
-            String recommendResultJson = recommendApi.getRecommend(json).block();
+            String recommendResultJson;
+            if ("dev".equals(env)) {
+                recommendResultJson = recommendApi.getRecommend(json).block();
+            } else {
+                recommendResultJson = recommendApi.getRecommendInProd(json).block();
+            }
             recommendRespDto = objectMapper.readValue(recommendResultJson, RecommendRespDto.class);
         } catch (JsonProcessingException e) {
             throw new JsonException(e.getMessage());
@@ -190,5 +201,46 @@ public class RecommendServiceImpl implements RecommendService {
                 }
         );
         redisTemplate.expire(recommendKey, 2, TimeUnit.HOURS);
+    }
+
+    @Override
+    public void getRelatedVideos(String videoId) throws NoMoreRecommendException {
+        List<String> videoIdList = videoMapper.getAllVideoId().stream()
+                .map(String::valueOf)
+                .filter(id -> !id.equals(videoId))
+                .toList();
+        // 组装视频标题和标签
+        Map<String, List<String>> videos = videoIdList.stream()
+                .collect(Collectors.toMap(
+                        id -> redisUtil.getVideoCacheFromRedis(id).getVideoTitle(),
+                        id -> redisUtil.getVideoCacheFromRedis(id).getTags()
+                ));
+        VideoCache videoCache = redisUtil.getVideoCacheFromRedis(videoId);
+        RelatedReqDto relatedReqDto = new RelatedReqDto(videoCache.getVideoTitle(), videoCache.getTags(), videos);
+        RecommendRespDto recommendRespDto;
+        try {
+            String json = objectMapper.writeValueAsString(relatedReqDto);
+            String relatedResultJson;
+            if ("dev".equals(env)) {
+                relatedResultJson = recommendApi.getRelatedVideos(json).block();
+            } else {
+                relatedResultJson = recommendApi.getRelatedVideosInProd(json).block();
+            }
+            recommendRespDto = objectMapper.readValue(relatedResultJson, RecommendRespDto.class);
+        } catch (JsonProcessingException e) {
+            throw new JsonException(e.getMessage());
+        } catch (WebClientRequestException e) {
+            log.error("{}:{}", e.getClass(), e.getMessage());
+            throw new NoMoreRecommendException("推荐服务器异常:" + e.getMessage());
+        }
+
+        String relatedKey = "related:" + videoId;
+        recommendRespDto.getRecommendations().forEach(relatedVideo -> {
+                    Integer id = videoMapper.getVideoIdByVideoTitle(relatedVideo.getVideoTitle());
+                    redisTemplate.opsForZSet()
+                            .add(relatedKey, String.valueOf(id), relatedVideo.getScore());
+                }
+        );
+        redisTemplate.expire(relatedKey, 5, TimeUnit.DAYS);
     }
 }

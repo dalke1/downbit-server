@@ -26,8 +26,8 @@ public class VideoRespDto {
     private String coverUrl;
     @JsonProperty("videoUrl")
     private String videoUrl;
-    @JsonProperty("videoType")
-    private String videoType;
+    @JsonProperty("videoFormat")
+    private String videoFormat;
     @JsonProperty("likeCount")
     private Integer likeCount;
     @JsonProperty("commentCount")
@@ -46,19 +46,24 @@ public class VideoRespDto {
     private Boolean isFavorite;
     @JsonProperty("tags")
     private List<String> tags;
+    @JsonProperty("duration")
+    private String duration;
+    @JsonProperty("uploaderAvatar")
+    private String uploaderAvatar;
+    @JsonProperty("videoDescription")
+    private String videoDescription;
 
     @JsonIgnore
     private String videoKey;
     @JsonIgnore
     private String coverKey;
 
-    // 按照所有json字段的顺序生成构造器
-    public VideoRespDto(String videoId, String title, String coverUrl, String videoUrl, String videoType, Integer likeCount, Integer commentCount, Integer watchCount, Integer favoriteCount, String uploader, String uploadTime, Boolean isLike, Boolean isFavorite, List<String> tags) {
+    public VideoRespDto(String videoId, String title, String coverUrl, String videoUrl, String videoFormat, Integer likeCount, Integer commentCount, Integer watchCount, Integer favoriteCount, String uploader, String uploadTime, Boolean isLike, Boolean isFavorite, List<String> tags, String duration, String uploaderAvatar, String videoDescription) {
         this.videoId = videoId;
         this.title = title;
         this.coverUrl = coverUrl;
         this.videoUrl = videoUrl;
-        this.videoType = videoType;
+        this.videoFormat = videoFormat;
         this.likeCount = likeCount;
         this.commentCount = commentCount;
         this.watchCount = watchCount;
@@ -68,5 +73,8 @@ public class VideoRespDto {
         this.isLike = isLike;
         this.isFavorite = isFavorite;
         this.tags = tags;
+        this.duration = duration;
+        this.uploaderAvatar = uploaderAvatar;
+        this.videoDescription = videoDescription;
     }
 }

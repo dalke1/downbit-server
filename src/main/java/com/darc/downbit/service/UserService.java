@@ -2,6 +2,7 @@ package com.darc.downbit.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.darc.downbit.common.dto.resp.ImgRespDto;
+import com.darc.downbit.common.dto.resp.UserInfo;
 import com.darc.downbit.dao.entity.User;
 
 import java.util.List;
@@ -34,4 +35,12 @@ public interface UserService extends IService<User> {
      */
     ImgRespDto getAvatar();
 
+
+    UserInfo getUserInfo();
+
+    String getUploadAvatarUrl(String fileName);
+
+    void updateUserInfo(String nickname, String intro, String fileName);
+
+    String likeTotal(String username);
 }

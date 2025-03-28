@@ -2,6 +2,7 @@ package com.darc.downbit.service;
 
 import com.darc.downbit.common.dto.rep.CommentReqDto;
 import com.darc.downbit.common.dto.rep.ReplyReqDto;
+import com.darc.downbit.common.dto.resp.CommentPage;
 import com.darc.downbit.common.dto.resp.CommentRespDto;
 
 import java.util.List;
@@ -13,11 +14,11 @@ import java.util.List;
  * @description
  */
 public interface CommentService {
-    List<CommentRespDto> getHotComments(String videoTitle, Integer startIndex);
+    CommentPage getHotComments(String videoTitle, Integer startIndex, String commentCopyId);
 
-    List<CommentRespDto> getNewComments(String videoTitle, Integer startIndex);
+    List<CommentRespDto> getNewComments(String videoTitle, String commentId);
 
-    List<CommentRespDto> getReplies(String commentId, Integer startIndex);
+    List<CommentRespDto> getReplies(String parentId, String commentId);
 
     Integer getCommentCount(String videoTitle);
 

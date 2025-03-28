@@ -9,6 +9,7 @@ import lombok.Data;
 import java.io.Serial;
 import java.io.Serializable;
 import java.util.Date;
+import java.util.Objects;
 
 /**
  * 视频表
@@ -56,6 +57,12 @@ public class Video implements Serializable {
     private Integer duration;
 
     /**
+     * 视频格式
+     */
+
+    private String videoFormat;
+
+    /**
      * 点赞数
      */
     private Integer likeCount;
@@ -85,71 +92,37 @@ public class Video implements Serializable {
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 
+
     @Override
-    public boolean equals(Object that) {
-        if (this == that) {
-            return true;
-        }
-        if (that == null) {
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) {
             return false;
         }
-        if (getClass() != that.getClass()) {
-            return false;
-        }
-        Video other = (Video) that;
-        return (this.getVideoId() == null ? other.getVideoId() == null : this.getVideoId().equals(other.getVideoId()))
-                && (this.getUserId() == null ? other.getUserId() == null : this.getUserId().equals(other.getUserId()))
-                && (this.getFileId() == null ? other.getFileId() == null : this.getFileId().equals(other.getFileId()))
-                && (this.getVideoTitle() == null ? other.getVideoTitle() == null : this.getVideoTitle().equals(other.getVideoTitle()))
-                && (this.getCoverFileId() == null ? other.getCoverFileId() == null : this.getCoverFileId().equals(other.getCoverFileId()))
-                && (this.getVideoDescription() == null ? other.getVideoDescription() == null : this.getVideoDescription().equals(other.getVideoDescription()))
-                && (this.getDuration() == null ? other.getDuration() == null : this.getDuration().equals(other.getDuration()))
-                && (this.getLikeCount() == null ? other.getLikeCount() == null : this.getLikeCount().equals(other.getLikeCount()))
-                && (this.getCommentCount() == null ? other.getCommentCount() == null : this.getCommentCount().equals(other.getCommentCount()))
-                && (this.getWatchCount() == null ? other.getWatchCount() == null : this.getWatchCount().equals(other.getWatchCount()))
-                && (this.getFavoriteCount() == null ? other.getFavoriteCount() == null : this.getFavoriteCount().equals(other.getFavoriteCount()))
-                && (this.getUploadTime() == null ? other.getUploadTime() == null : this.getUploadTime().equals(other.getUploadTime()));
+        Video video = (Video) o;
+        return Objects.equals(videoId, video.videoId) && Objects.equals(userId, video.userId) && Objects.equals(fileId, video.fileId) && Objects.equals(videoTitle, video.videoTitle) && Objects.equals(coverFileId, video.coverFileId) && Objects.equals(videoDescription, video.videoDescription) && Objects.equals(duration, video.duration) && Objects.equals(videoFormat, video.videoFormat) && Objects.equals(likeCount, video.likeCount) && Objects.equals(commentCount, video.commentCount) && Objects.equals(watchCount, video.watchCount) && Objects.equals(favoriteCount, video.favoriteCount) && Objects.equals(uploadTime, video.uploadTime);
     }
 
     @Override
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((getVideoId() == null) ? 0 : getVideoId().hashCode());
-        result = prime * result + ((getUserId() == null) ? 0 : getUserId().hashCode());
-        result = prime * result + ((getFileId() == null) ? 0 : getFileId().hashCode());
-        result = prime * result + ((getVideoTitle() == null) ? 0 : getVideoTitle().hashCode());
-        result = prime * result + ((getCoverFileId() == null) ? 0 : getCoverFileId().hashCode());
-        result = prime * result + ((getVideoDescription() == null) ? 0 : getVideoDescription().hashCode());
-        result = prime * result + ((getDuration() == null) ? 0 : getDuration().hashCode());
-        result = prime * result + ((getLikeCount() == null) ? 0 : getLikeCount().hashCode());
-        result = prime * result + ((getCommentCount() == null) ? 0 : getCommentCount().hashCode());
-        result = prime * result + ((getWatchCount() == null) ? 0 : getWatchCount().hashCode());
-        result = prime * result + ((getFavoriteCount() == null) ? 0 : getFavoriteCount().hashCode());
-        result = prime * result + ((getUploadTime() == null) ? 0 : getUploadTime().hashCode());
-        return result;
+        return Objects.hash(videoId, userId, fileId, videoTitle, coverFileId, videoDescription, duration, videoFormat, likeCount, commentCount, watchCount, favoriteCount, uploadTime);
     }
 
     @Override
     public String toString() {
-        StringBuilder sb = new StringBuilder();
-        sb.append(getClass().getSimpleName());
-        sb.append(" [");
-        sb.append("Hash = ").append(hashCode());
-        sb.append(", videoId=").append(videoId);
-        sb.append(", userId=").append(userId);
-        sb.append(", fileId=").append(fileId);
-        sb.append(", videoTitle=").append(videoTitle);
-        sb.append(", coverFileId=").append(coverFileId);
-        sb.append(", videoDescription=").append(videoDescription);
-        sb.append(", duration=").append(duration);
-        sb.append(", likeCount=").append(likeCount);
-        sb.append(", commentCount=").append(commentCount);
-        sb.append(", watchCount=").append(watchCount);
-        sb.append(", favoriteCount=").append(favoriteCount);
-        sb.append(", uploadTime=").append(uploadTime);
-        sb.append(", serialVersionUID=").append(serialVersionUID);
-        sb.append("]");
-        return sb.toString();
+        return "Video{" +
+                "videoId=" + videoId +
+                ", userId=" + userId +
+                ", fileId=" + fileId +
+                ", videoTitle='" + videoTitle + '\'' +
+                ", coverFileId=" + coverFileId +
+                ", videoDescription='" + videoDescription + '\'' +
+                ", duration=" + duration +
+                ", videoFormat='" + videoFormat + '\'' +
+                ", likeCount=" + likeCount +
+                ", commentCount=" + commentCount +
+                ", watchCount=" + watchCount +
+                ", favoriteCount=" + favoriteCount +
+                ", uploadTime=" + uploadTime +
+                '}';
     }
 }

@@ -2,6 +2,7 @@ package com.darc.downbit.dao.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.darc.downbit.dao.entity.Img;
+import org.apache.ibatis.annotations.Delete;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
@@ -28,6 +29,10 @@ public interface ImgMapper extends BaseMapper<Img> {
             "    left join img on file.file_id = img.file_id" +
             "    where img.user_id = #{userId} and file.file_type = 'cover'")
     List<String> getVideoCoversByUserId(Integer userId);
+
+
+    @Delete("delete from img where file_id = (select cover_file_id from video where video_id = #{videoId})")
+    int deleteImgByVideoId(Integer videoId);
 }
 
 

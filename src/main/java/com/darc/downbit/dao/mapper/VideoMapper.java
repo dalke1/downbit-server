@@ -5,6 +5,7 @@ import com.darc.downbit.common.cache.VideoCache;
 import com.darc.downbit.common.po.CoverPo;
 import com.darc.downbit.common.po.TagPo;
 import com.darc.downbit.common.po.VideoPo;
+import com.darc.downbit.common.po.VideoTimePo;
 import com.darc.downbit.dao.entity.Video;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -25,22 +26,20 @@ public interface VideoMapper extends BaseMapper<Video> {
             "    where video.video_id = #{videoId}")
     VideoPo getVideoByVideoId(Integer videoId);
 
-    @Select("select video.video_id,user.username as uploader,file.file_name,video.video_title,video.video_description,video.upload_time from file" +
+    @Select("select video.video_id,user.username as uploader,file.file_name,video.video_title,video.video_description,video.video_format from file" +
             "    left join video on file.file_id = video.file_id" +
             "    left join user on user.user_id = video.user_id" +
             "    where video.video_id = #{videoId}")
     VideoCache getVideoCacheByVideoId(Integer videoId);
+
+    @Select("select video.upload_time,video.duration from video where video_id = #{videoId}")
+    VideoTimePo selectUploadTimeAndDurationByVideoId(Integer videoId);
 
     @Select("select user.username as uploader,file.file_name,video.video_title from file" +
             "    left join video on file.file_id = video.file_id" +
             "    left join user on user.user_id = video.user_id" +
             "    where video.video_title = #{videoTitle}")
     VideoPo getVideoByVideoTitle(String videoTitle);
-
-    @Select("select file.file_name as coverFileName from file" +
-            "    left join video on file.file_id = video.cover_file_id" +
-            "    where video.video_id = #{videoId}")
-    String getCoverByVideoId(Integer videoId);
 
 
     @Select("select user.username as uploader,file.file_name,video.video_title from file" +
@@ -105,9 +104,20 @@ public interface VideoMapper extends BaseMapper<Video> {
     String getFileNameByVideoTitle(String videoTitle);
 
     @Select("select file.file_name from file" +
+            "    left join video on file.file_id = video.file_id" +
+            "    where video.video_id = #{videoId}")
+    String getFileNameByVideoId(Integer videoId);
+
+    @Select("select file.file_name from file" +
             "    left join video on file.file_id = video.cover_file_id" +
             "    where video.video_title = #{videoTitle}")
     String getCoverByVideoTitle(String videoTitle);
+
+    @Select("select file.file_name as coverFileName from file" +
+            "    left join video on file.file_id = video.cover_file_id" +
+            "    where video.video_id = #{videoId}")
+    String getCoverByVideoId(Integer videoId);
+
 
     @Select("select tag.tag_name from video_tag" +
             "    left join tag on video_tag.tag_id = tag.tag_id" +
@@ -125,6 +135,14 @@ public interface VideoMapper extends BaseMapper<Video> {
 
     @Select("select video.video_id from video")
     List<Integer> getAllVideoId();
+
+    @Select("select video.video_id from video " +
+            "where upload_time < (select upload_time from video where video_id = #{videoId} ) " +
+            "order by upload_time DESC limit #{limit}")
+    List<Integer> getVideosIdByCursorAndUploadTime(Integer videoId, Integer limit);
+
+    @Select(" select video.video_id from video order by upload_time DESC limit #{limit}")
+    List<Integer> getVideosIdOrderByUploadTime(Integer limit);
 }
 
 

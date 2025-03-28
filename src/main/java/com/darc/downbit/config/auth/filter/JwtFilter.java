@@ -44,6 +44,7 @@ public class JwtFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
         List<String> passPath = filterProperties.getPassPath();
         String requestUri = request.getRequestURI();
+        log.info("请求的uri{}", requestUri);
         PathMatcher pathMatcher = new AntPathMatcher();
         for (String path : passPath) {
             if (pathMatcher.match(path, requestUri)) {

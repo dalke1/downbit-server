@@ -16,6 +16,7 @@
         <result property="watchCount" column="watch_count" jdbcType="INTEGER"/>
         <result property="favoriteCount" column="favorite_count" jdbcType="INTEGER"/>
         <result property="uploadTime" column="upload_time" jdbcType="TIMESTAMP"/>
+        <result property="videoFormat" column="video_format" jdbcType="VARCHAR"/>
     </resultMap>
 
     <resultMap id="videoPoMap" type="com.darc.downbit.common.po.VideoPo">
@@ -35,7 +36,7 @@
     </resultMap>
 
     <sql id="Base_Column_List">
-        video_id,user_id,file_id,video_title,cover_file_id,duration,like_count,comment_count,watch_count,favorite_count,upload_time
+        video_id,user_id,file_id,video_title,cover_file_id,duration,like_count,comment_count,watch_count,favorite_count,upload_time,video_format
     </sql>
 
     <select id="getVideosByVideoTitles" resultMap="videoPoMap">
